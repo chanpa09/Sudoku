@@ -1,12 +1,13 @@
 import React from 'react';
 import Cell from './Cell';
-import type { Board as BoardType, Notes, CellSelection } from '../hooks/useSudoku';
+import type { Board as BoardType, Notes, CellSelection, HintHighlight } from '../hooks/useSudoku';
 
 interface BoardProps {
   currentBoard: BoardType;
   initialBoard: BoardType;
   solutionBoard: BoardType;
   notes: Notes;
+  hintHighlight: HintHighlight;
   selectedCell: CellSelection;
   isPaused: boolean;
   showMistakes: boolean;
@@ -19,6 +20,7 @@ const Board: React.FC<BoardProps> = ({
   initialBoard,
   solutionBoard,
   notes,
+  hintHighlight,
   selectedCell,
   isPaused,
   showMistakes,
@@ -59,6 +61,12 @@ const Board: React.FC<BoardProps> = ({
       );
   };
 
+  const isHintPrimary = (row: number, col: number): boolean =>
+    hintHighlight?.primary.row === row && hintHighlight.primary.col === col;
+
+  const isHintRelated = (row: number, col: number): boolean =>
+    hintHighlight?.related.some(cell => cell.row === row && cell.col === col) ?? false;
+
   return (
     <div className="grid grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] w-full max-w-[500px] aspect-square border-2 border-[var(--border-board)] shadow-2xl mx-auto" role="grid" aria-label="스도쿠 보드">
       {currentBoard.map((row: number[], rowIndex: number) =>
@@ -82,6 +90,8 @@ const Board: React.FC<BoardProps> = ({
                 isRelated={isRelated(rowIndex, colIndex)}
                 isConflict={showDuplicates && isConflict(rowIndex, colIndex, cell)}
                 isMistake={showMistakes && cell !== 0 && cell !== solutionBoard[rowIndex][colIndex]}
+                isHintPrimary={isHintPrimary(rowIndex, colIndex)}
+                isHintRelated={isHintRelated(rowIndex, colIndex)}
                 isPaused={isPaused}
                 row={rowIndex}
                 col={colIndex}

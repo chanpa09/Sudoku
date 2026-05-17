@@ -9,6 +9,11 @@ export type GameStatus = 'playing' | 'paused' | 'won' | 'lost';
 export type GameMode = 'classic' | 'daily';
 export type AppTab = 'classic' | 'daily' | 'stats' | 'settings';
 export type Notes = Set<number>[][];
+export type HintHighlight = {
+  primary: { row: number; col: number };
+  related: Array<{ row: number; col: number }>;
+  value: number;
+} | null;
 
 export type GameSettings = {
   autoCheck: boolean;
@@ -26,6 +31,8 @@ export type DifficultyStats = {
   totalTime: number;
   totalMistakes: number;
   totalHints: number;
+  noHintWins: number;
+  noMistakeWins: number;
 };
 
 export type GameStats = {
@@ -104,6 +111,8 @@ const emptyDifficultyStats = (): DifficultyStats => ({
   totalTime: 0,
   totalMistakes: 0,
   totalHints: 0,
+  noHintWins: 0,
+  noMistakeWins: 0,
 });
 
 const defaultStats = (): GameStats => ({
@@ -416,6 +425,30 @@ const calculateStreak = (records: DailyRecord[]): number => {
   return streak;
 };
 
+const getHintRelatedCells = (hint: Hint): Array<{ row: number; col: number }> => {
+  const cells: Array<{ row: number; col: number }> = [];
+  const addCell = (row: number, col: number) => {
+    if (row === hint.row && col === hint.col) return;
+    if (cells.some(cell => cell.row === row && cell.col === col)) return;
+    cells.push({ row, col });
+  };
+
+  for (let index = 0; index < 9; index++) {
+    addCell(hint.row, index);
+    addCell(index, hint.col);
+  }
+
+  const boxRow = Math.floor(hint.row / 3) * 3;
+  const boxCol = Math.floor(hint.col / 3) * 3;
+  for (let row = boxRow; row < boxRow + 3; row++) {
+    for (let col = boxCol; col < boxCol + 3; col++) {
+      addCell(row, col);
+    }
+  }
+
+  return cells;
+};
+
 export const useSudoku = () => {
   const [game, setGame] = useState<SavedGameState>(() => loadSavedGame());
   const [settings, setSettings] = useState<GameSettings>(() => loadSettings());
@@ -426,6 +459,14 @@ export const useSudoku = () => {
 
   const notes = useMemo(() => deserializeNotes(game.notes), [game.notes]);
   const remainingDigits = useMemo(() => getRemainingDigits(game.currentBoard), [game.currentBoard]);
+  const hintHighlight = useMemo<HintHighlight>(() => {
+    if (!hintState) return null;
+    return {
+      primary: { row: hintState.hint.row, col: hintState.hint.col },
+      related: getHintRelatedCells(hintState.hint),
+      value: hintState.hint.value,
+    };
+  }, [hintState]);
   const dailyDate = todayKey();
 
   useEffect(() => {
@@ -489,6 +530,8 @@ export const useSudoku = () => {
         totalTime: difficultyStats.totalTime + completedGame.timer,
         totalMistakes: difficultyStats.totalMistakes + completedGame.mistakes,
         totalHints: difficultyStats.totalHints + completedGame.hintsUsed,
+        noHintWins: difficultyStats.noHintWins + (completedGame.hintsUsed === 0 && completedGame.explanationHintsUsed === 0 ? 1 : 0),
+        noMistakeWins: difficultyStats.noMistakeWins + (completedGame.mistakes === 0 ? 1 : 0),
       };
       const achievements = [];
       if (Object.values(current.byDifficulty).every(item => item.won === 0)) achievements.push(achievementLabels.firstWin);
@@ -708,6 +751,24 @@ export const useSudoku = () => {
     });
   };
 
+  const cleanNotes = () => {
+    clearHint();
+    setGame(current => {
+      if (current.gameStatus !== 'playing') return current;
+      const currentNotes = deserializeNotes(current.notes);
+      const nextNotes = currentNotes.map((noteRow, row) =>
+        noteRow.map((cellNotes, col) => {
+          if (current.currentBoard[row][col] !== 0) return new Set<number>();
+          const possible = new Set(getPossibleValues(current.currentBoard, row, col));
+          return new Set([...cellNotes].filter(note => possible.has(note)));
+        })
+      );
+      const serialized = serializeNotes(nextNotes);
+      if (JSON.stringify(serialized) === JSON.stringify(current.notes)) return current;
+      return { ...pushHistory(current), notes: serialized };
+    });
+  };
+
   const getHint = () => {
     if (game.gameStatus !== 'playing') return;
     const hint = hintState?.hint ?? findAdvancedHint(game.currentBoard, game.selectedCell);
@@ -879,6 +940,7 @@ export const useSudoku = () => {
     initialBoard: game.initialBoard,
     solutionBoard: game.solutionBoard,
     notes,
+    hintHighlight,
     selectedCell: game.selectedCell,
     isNoteMode: game.isNoteMode,
     stickyNumber: game.stickyNumber,
@@ -906,6 +968,7 @@ export const useSudoku = () => {
     toggleNoteMode,
     toggleStickyNumber,
     autoFillNotes,
+    cleanNotes,
     updateSettings,
     getHint,
     startNewGame,

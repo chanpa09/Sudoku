@@ -14,6 +14,7 @@ interface ControlsProps {
   onToggleNoteMode: () => void;
   onToggleStickyNumber: (num: number) => void;
   onAutoNotes: () => void;
+  onCleanNotes: () => void;
   onHint: () => void;
   onNewGame: (difficulty: Difficulty) => void;
   onPause: () => void;
@@ -41,6 +42,7 @@ const Controls: React.FC<ControlsProps> = ({
   onToggleNoteMode,
   onToggleStickyNumber,
   onAutoNotes,
+  onCleanNotes,
   onHint,
   onNewGame,
   onPause,
@@ -190,6 +192,17 @@ const Controls: React.FC<ControlsProps> = ({
                 className="w-full text-left px-4 py-3 font-semibold text-[var(--text-main)] hover:bg-[var(--bg-root)] disabled:opacity-40"
               >
                 자동 메모
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onCleanNotes();
+                  setIsMoreOpen(false);
+                }}
+                disabled={isDisabled}
+                className="w-full text-left px-4 py-3 font-semibold text-[var(--text-main)] hover:bg-[var(--bg-root)] disabled:opacity-40"
+              >
+                메모 정리
               </button>
               <button
                 type="button"

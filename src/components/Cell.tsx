@@ -8,6 +8,8 @@ interface CellProps {
   isRelated: boolean;
   isConflict: boolean;
   isMistake: boolean;
+  isHintPrimary: boolean;
+  isHintRelated: boolean;
   isPaused: boolean;
   row: number;
   col: number;
@@ -23,6 +25,8 @@ const Cell: React.FC<CellProps> = ({
   isRelated,
   isConflict,
   isMistake,
+  isHintPrimary,
+  isHintRelated,
   isPaused,
   row,
   col,
@@ -33,8 +37,10 @@ const Cell: React.FC<CellProps> = ({
 
   const getBgColor = () => {
     if (isPaused) return 'bg-[var(--bg-cell-paused)]';
+    if (isHintPrimary) return 'bg-yellow-200 dark:bg-yellow-900/30';
     if (isSelected) return 'bg-[var(--bg-cell-selected)]';
     if (isSameNumber && value !== 0) return 'bg-[var(--bg-cell-same)]';
+    if (isHintRelated) return 'bg-yellow-50 dark:bg-yellow-900/20';
     if (isRelated) return 'bg-[var(--bg-cell-related)]';
     return 'bg-[var(--bg-cell)]';
   };
@@ -59,7 +65,7 @@ const Cell: React.FC<CellProps> = ({
           onClick();
         }
       }}
-      className={`relative w-full h-full border border-[var(--border-cell)] flex items-center justify-center cursor-pointer text-xl sm:text-2xl transition-colors ${getBgColor()} ${getTextColor()}`}
+      className={`relative w-full h-full border border-[var(--border-cell)] flex items-center justify-center cursor-pointer text-xl sm:text-2xl transition-colors ${getBgColor()} ${getTextColor()} ${isHintPrimary ? 'ring-2 ring-yellow-400 ring-inset' : ''}`}
     >
       {isPaused ? (
         ''

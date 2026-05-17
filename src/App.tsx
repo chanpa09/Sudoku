@@ -38,9 +38,28 @@ const achievementLabels: Record<string, string> = {
   dailyStreak: '7일 연속',
 };
 
+const formatShortDate = (dateKey: string) => {
+  const [, month, day] = dateKey.split('-');
+  return `${Number(month)}/${Number(day)}`;
+};
+
+const recentDateKeys = (count: number) => {
+  const dates = [];
+  const cursor = new Date();
+  for (let index = 0; index < count; index++) {
+    const year = cursor.getFullYear();
+    const month = String(cursor.getMonth() + 1).padStart(2, '0');
+    const day = String(cursor.getDate()).padStart(2, '0');
+    dates.push(`${year}-${month}-${day}`);
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return dates;
+};
+
 function App() {
   const sudoku = useSudoku();
   const [archiveDate, setArchiveDate] = useState(currentLocalDate());
+  const [shareMessage, setShareMessage] = useState('');
   const {
     activeTab,
     setActiveTab,
@@ -48,6 +67,7 @@ function App() {
     initialBoard,
     solutionBoard,
     notes,
+    hintHighlight,
     selectedCell,
     isNoteMode,
     stickyNumber,
@@ -75,6 +95,7 @@ function App() {
     toggleNoteMode,
     toggleStickyNumber,
     autoFillNotes,
+    cleanNotes,
     updateSettings,
     getHint,
     startNewGame,
@@ -91,9 +112,22 @@ function App() {
 
   const isGameTab = activeTab === 'classic';
   const hasArchiveDate = /^\d{4}-\d{2}-\d{2}$/.test(archiveDate);
+  const recentDailyDates = recentDateKeys(7);
+  const completedDailyKeys = new Set(dailyRecords.filter(record => record.completed).map(record => `${record.date}:${record.difficulty}`));
   const startDailyAndPlay = (level: Difficulty, date = dailyDate ?? currentDailyDate) => {
     startDailyGame(level, date);
     setActiveTab('classic');
+  };
+  const shareResult = async () => {
+    const modeText = gameMode === 'daily' && dailyDate ? `오늘의 문제 ${dailyDate}` : '일반 게임';
+    const text = `스도쿠 완료\n${modeText} · ${difficultyLabels[difficulty]}\n기록 ${formatTime(timer)} · 실수 ${mistakes}/${maxMistakes} · 힌트 ${hintsUsed}`;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setShareMessage('결과를 복사했습니다.');
+    } catch {
+      setShareMessage('이 브라우저에서는 복사를 사용할 수 없습니다.');
+    }
   };
 
   return (
@@ -136,6 +170,26 @@ function App() {
               </div>
             </div>
             <div className="mt-5 grid gap-3 text-sm">
+              <div className="grid grid-cols-7 gap-1">
+                {recentDailyDates.map(dateKey => {
+                  const completedCount = (['easy', 'medium', 'hard'] as Difficulty[])
+                    .filter(level => completedDailyKeys.has(`${dateKey}:${level}`)).length;
+                  return (
+                    <button
+                      key={dateKey}
+                      type="button"
+                      onClick={() => setArchiveDate(dateKey)}
+                      className={`rounded border border-[var(--border-main)] px-1 py-2 text-center ${
+                        archiveDate === dateKey ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--bg-root)] text-[var(--text-main)] hover:bg-[var(--border-main)]/80'
+                      }`}
+                      title={`${dateKey} 완료 ${completedCount}/3`}
+                    >
+                      <span className="block text-xs font-bold">{formatShortDate(dateKey)}</span>
+                      <span className="block text-[10px] opacity-80">{completedCount}/3</span>
+                    </button>
+                  );
+                })}
+              </div>
               <label className="flex flex-wrap items-center justify-between gap-2 bg-[var(--bg-root)] rounded px-3 py-2">
                 <span className="font-semibold text-[var(--text-dim)]">지난 문제 날짜</span>
                 <input
@@ -187,6 +241,7 @@ function App() {
               initialBoard={initialBoard}
               solutionBoard={solutionBoard}
               notes={notes}
+              hintHighlight={hintHighlight}
               selectedCell={selectedCell}
               isPaused={gameStatus === 'paused'}
               showMistakes={showMistakes}
@@ -207,6 +262,7 @@ function App() {
               onToggleNoteMode={toggleNoteMode}
               onToggleStickyNumber={toggleStickyNumber}
               onAutoNotes={autoFillNotes}
+              onCleanNotes={cleanNotes}
               onHint={getHint}
               onNewGame={gameMode === 'daily' ? startDailyAndPlay : startNewGame}
               onPause={pauseGame}
@@ -224,16 +280,30 @@ function App() {
               {(['easy', 'medium', 'hard'] as Difficulty[]).map(level => {
                 const item = stats.byDifficulty[level];
                 const averageTime = item.won ? Math.round(item.totalTime / item.won) : null;
+                const winRate = item.played ? Math.round((item.won / item.played) * 100) : 0;
                 return (
-                  <div key={level} className="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-[var(--bg-root)] rounded-lg p-3 text-sm text-[var(--text-main)]">
+                  <div key={level} className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[var(--bg-root)] rounded-lg p-3 text-sm text-[var(--text-main)]">
                     <strong>{difficultyLabels[level]}</strong>
                     <span>승리 {item.won}/{item.played}</span>
+                    <span>승률 {winRate}%</span>
                     <span>최고 {formatTime(item.bestTime)}</span>
                     <span>평균 {formatTime(averageTime)}</span>
                     <span>힌트 {item.totalHints}</span>
+                    <span>무힌트 {item.noHintWins}</span>
+                    <span>무실수 {item.noMistakeWins}</span>
                   </div>
                 );
               })}
+            </div>
+            <h3 className="mt-5 mb-2 font-bold text-[var(--text-main)]">최근 오늘의 문제</h3>
+            <div className="grid gap-2 text-sm">
+              {dailyRecords.slice(0, 7).map(record => (
+                <div key={`stats-${record.date}:${record.difficulty}`} className="flex flex-wrap items-center justify-between gap-2 bg-[var(--bg-root)] rounded px-3 py-2 text-[var(--text-main)]">
+                  <span>{record.date} · {difficultyLabels[record.difficulty]}</span>
+                  <span>{record.completed ? formatTime(record.time) : '진행 중'} · 실수 {record.mistakes} · 힌트 {record.hints}</span>
+                </div>
+              ))}
+              {dailyRecords.length === 0 && <p className="text-[var(--text-dim)]">아직 오늘의 문제 기록이 없습니다.</p>}
             </div>
             <h3 className="mt-5 mb-2 font-bold text-[var(--text-main)]">업적</h3>
             <div className="flex flex-wrap gap-2">
@@ -293,6 +363,14 @@ function App() {
             >
               다시 풀기
             </button>
+            <button
+              type="button"
+              onClick={shareResult}
+              className="mt-4 ml-2 px-6 py-2 bg-[var(--color-primary)] text-white rounded-lg font-bold hover:bg-[var(--color-primary-hover)] transition-colors"
+            >
+              결과 공유
+            </button>
+            {shareMessage && <p className="mt-3 text-sm text-green-700 dark:text-green-300">{shareMessage}</p>}
           </div>
         )}
 
