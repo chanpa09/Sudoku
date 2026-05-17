@@ -114,7 +114,16 @@ function App() {
   const hasArchiveDate = /^\d{4}-\d{2}-\d{2}$/.test(archiveDate);
   const recentDailyDates = recentDateKeys(7);
   const completedDailyKeys = new Set(dailyRecords.filter(record => record.completed).map(record => `${record.date}:${record.difficulty}`));
-  const startDailyAndPlay = (level: Difficulty, date = dailyDate ?? currentDailyDate) => {
+  const navigateToTab = (tab: typeof activeTab) => {
+    setShareMessage('');
+    setActiveTab(tab);
+  };
+  const startClassicGame = (level: Difficulty = difficulty) => {
+    setShareMessage('');
+    startNewGame(level);
+  };
+  const startDailyAndPlay = (level: Difficulty, date = currentDailyDate) => {
+    setShareMessage('');
     startDailyGame(level, date);
     setActiveTab('classic');
   };
@@ -145,7 +154,7 @@ function App() {
         explanationHintsUsed={explanationHintsUsed}
         bestTime={bestTime}
         dailyStreak={dailyStreak}
-        onNavigate={setActiveTab}
+        onNavigate={navigateToTab}
       />
 
       <main className="w-full max-w-2xl px-4">
@@ -161,7 +170,7 @@ function App() {
                   <button
                     key={level}
                     type="button"
-                    onClick={() => startDailyAndPlay(level)}
+                    onClick={() => startDailyAndPlay(level, currentDailyDate)}
                     className="px-3 py-2 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded-lg font-semibold hover:bg-[var(--color-primary)]/20"
                   >
                     {difficultyLabels[level]}
@@ -264,7 +273,7 @@ function App() {
               onAutoNotes={autoFillNotes}
               onCleanNotes={cleanNotes}
               onHint={getHint}
-              onNewGame={gameMode === 'daily' ? startDailyAndPlay : startNewGame}
+              onNewGame={gameMode === 'daily' ? startDailyAndPlay : startClassicGame}
               onPause={pauseGame}
               onResume={resumeGame}
               onUndo={undo}
@@ -358,7 +367,7 @@ function App() {
             <p className="text-green-700 dark:text-green-300">{Math.floor(timer / 60)}분 {timer % 60}초 만에 풀었습니다. 입력 힌트는 {hintsUsed}번 사용했습니다.</p>
             <button
               type="button"
-              onClick={() => gameMode === 'daily' ? startDailyAndPlay(difficulty, dailyDate ?? currentDailyDate) : startNewGame(difficulty)}
+              onClick={() => gameMode === 'daily' ? startDailyAndPlay(difficulty, dailyDate ?? currentDailyDate) : startClassicGame(difficulty)}
               className="mt-4 px-6 py-2 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 transition-colors"
             >
               다시 풀기
@@ -380,7 +389,7 @@ function App() {
             <p className="text-red-700 dark:text-red-300">실수 {maxMistakes}회에 도달했습니다.</p>
             <button
               type="button"
-              onClick={() => gameMode === 'daily' ? startDailyAndPlay(difficulty, dailyDate ?? currentDailyDate) : startNewGame(difficulty)}
+              onClick={() => gameMode === 'daily' ? startDailyAndPlay(difficulty, dailyDate ?? currentDailyDate) : startClassicGame(difficulty)}
               className="mt-4 px-6 py-2 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-colors"
             >
               다시 시도
