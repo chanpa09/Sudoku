@@ -1,51 +1,119 @@
 @import "tailwindcss";
 
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+@theme {
+  --color-board: var(--border-board);
+  --color-cell-border: var(--border-cell);
+}
 
+:root {
+  /* Common */
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
+  /* Theme: Blue (Default) */
+  --color-primary: #3b82f6; /* blue-500 */
+  --color-primary-hover: #2563eb; /* blue-600 */
+  --color-primary-active: #1d4ed8; /* blue-700 */
+
+  /* Light Mode Defaults */
+  --bg-root: #f9fafb; /* gray-50 */
+  --bg-panel: #ffffff; /* white */
+  --text-main: #111827; /* gray-900 */
+  --text-dim: #4b5563; /* gray-600 */
+  --border-main: #e5e7eb; /* gray-200 */
+  
+  --border-board: #111827; /* gray-900 */
+  --border-cell: #d1d5db; /* gray-300 */
+  
+  --bg-cell: #ffffff;
+  --bg-cell-paused: #f3f4f6; /* gray-100 */
+  --bg-cell-selected: #bfdbfe; /* blue-200 */
+  --bg-cell-same: #dbeafe; /* blue-100 */
+  --bg-cell-related: #eff6ff; /* blue-50 */
+  
+  --text-cell-initial: #111827; /* gray-900 */
+  --text-cell-entered: #2563eb; /* blue-600 */
+  --text-cell-error: #ef4444; /* red-500 */
+  --text-cell-note: #6b7280; /* gray-500 */
+
+  color-scheme: light;
+  background: var(--bg-root);
+  color: var(--text-main);
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+/* Theme Overrides */
+.theme-blue {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-active: #1d4ed8;
+}
+
+.theme-emerald {
+  --color-primary: #10b981;
+  --color-primary-hover: #059669;
+  --color-primary-active: #047857;
+  
+  --bg-cell-selected: #a7f3d0;
+  --bg-cell-same: #d1fae5;
+  --bg-cell-related: #ecfdf5;
+  --text-cell-entered: #059669;
+}
+
+.theme-violet {
+  --color-primary: #8b5cf6;
+  --color-primary-hover: #7c3aed;
+  --color-primary-active: #6d28d9;
+  
+  --bg-cell-selected: #ddd6fe;
+  --bg-cell-same: #ede9fe;
+  --bg-cell-related: #f5f3ff;
+  --text-cell-entered: #7c3aed;
+}
+
+/* Dark Mode */
+.dark {
+  color-scheme: dark;
+  --bg-root: #030712; /* gray-950 */
+  --bg-panel: #111827; /* gray-900 */
+  --text-main: #f9fafb; /* gray-50 */
+  --text-dim: #9ca3af; /* gray-400 */
+  --border-main: #374151; /* gray-700 */
+  
+  --border-board: #f9fafb; /* gray-50 */
+  --border-cell: #374151; /* gray-700 */
+  
+  --bg-cell: #1f2937; /* gray-800 */
+  --bg-cell-paused: #111827; /* gray-900 */
+  
+  --text-cell-initial: #f9fafb; /* gray-50 */
+  --text-cell-error: #f87171; /* red-400 */
+  --text-cell-note: #9ca3af; /* gray-400 */
+}
+
+.dark.theme-blue {
+  --bg-cell-selected: #1e3a8a; /* blue-900 */
+  --bg-cell-same: #1e3a8a; /* blue-900 */
+  --bg-cell-related: #172554; /* blue-950 */
+  --text-cell-entered: #60a5fa; /* blue-400 */
+}
+
+.dark.theme-emerald {
+  --bg-cell-selected: #064e3b; /* emerald-900 */
+  --bg-cell-same: #064e3b; /* emerald-900 */
+  --bg-cell-related: #022c22; /* emerald-950 */
+  --text-cell-entered: #34d399; /* emerald-400 */
+}
+
+.dark.theme-violet {
+  --bg-cell-selected: #4c1d95; /* violet-900 */
+  --bg-cell-same: #4c1d95; /* violet-900 */
+  --bg-cell-related: #2e1065; /* violet-950 */
+  --text-cell-entered: #a78bfa; /* violet-400 */
 }
 
 #root {
@@ -59,4 +127,12 @@
 
 body {
   margin: 0;
+  background-color: var(--bg-root);
+  color: var(--text-main);
+}
+
+@media (max-width: 1024px) {
+  :root {
+    font-size: 16px;
+  }
 }

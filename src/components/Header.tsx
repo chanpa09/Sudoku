@@ -57,15 +57,15 @@ const Header: React.FC<HeaderProps> = ({
   const modeLabel = gameMode === 'daily' ? `오늘의 문제 ${dailyDate ?? ''}` : '일반 게임';
 
   return (
-    <header className="w-full bg-white border-b border-gray-200 mb-4">
+    <header className="w-full bg-[var(--bg-panel)] border-b border-[var(--border-main)] mb-4">
       <div className="max-w-2xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-gray-900 leading-tight">스도쿠</h1>
+            <h1 className="text-xl font-bold text-[var(--text-main)] leading-tight">스도쿠</h1>
             <button
               type="button"
               onClick={() => setShowDetails(open => !open)}
-              className="text-xs text-gray-500 hover:text-gray-800"
+              className="text-xs text-[var(--text-dim)] hover:text-[var(--text-main)]"
             >
               {modeLabel} · {difficultyLabels[difficulty]} · {formatTime(timer)}
             </button>
@@ -74,9 +74,9 @@ const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-2">
             {gameStatus !== 'playing' && (
               <span className={`px-2 py-1 rounded text-xs font-bold ${
-                gameStatus === 'won' ? 'bg-green-100 text-green-700'
-                  : gameStatus === 'lost' ? 'bg-red-100 text-red-700'
-                    : 'bg-indigo-100 text-indigo-700'
+                gameStatus === 'won' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                  : gameStatus === 'lost' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                    : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
               }`}
               >
                 {gameStatus === 'won' ? '완료' : gameStatus === 'lost' ? '실패' : '일시정지'}
@@ -86,12 +86,12 @@ const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => setIsMenuOpen(open => !open)}
-                className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                className="px-3 py-2 rounded-lg border border-[var(--border-main)] bg-[var(--bg-panel)] text-sm font-semibold text-[var(--text-main)] hover:bg-[var(--bg-root)]"
               >
                 메뉴
               </button>
               {isMenuOpen && (
-                <div className="absolute right-0 top-11 z-20 w-40 rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden">
+                <div className="absolute right-0 top-11 z-20 w-40 rounded-lg border border-[var(--border-main)] bg-[var(--bg-panel)] shadow-lg overflow-hidden">
                   {menuItems.map(item => (
                     <button
                       key={item.tab}
@@ -101,7 +101,7 @@ const Header: React.FC<HeaderProps> = ({
                         setIsMenuOpen(false);
                       }}
                       className={`w-full text-left px-4 py-3 text-sm font-semibold ${
-                        activeTab === item.tab ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                        activeTab === item.tab ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'text-[var(--text-main)] hover:bg-[var(--bg-root)]'
                       }`}
                     >
                       {item.label}
@@ -114,16 +114,17 @@ const Header: React.FC<HeaderProps> = ({
         </div>
 
         {showDetails && (
-          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-gray-700">
-            <div className="bg-gray-100 rounded px-3 py-2">실수 {mistakes}/{maxMistakes}</div>
-            <div className="bg-gray-100 rounded px-3 py-2">힌트 {hintsUsed}/{explanationHintsUsed}</div>
-            <div className="bg-gray-100 rounded px-3 py-2">최고 {formatTime(bestTime)}</div>
-            <div className="bg-gray-100 rounded px-3 py-2">연속 {dailyStreak}일</div>
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-[var(--text-main)]">
+            <div className="bg-[var(--bg-root)] rounded px-3 py-2">실수 {mistakes}/{maxMistakes}</div>
+            <div className="bg-[var(--bg-root)] rounded px-3 py-2">힌트 {hintsUsed}/{explanationHintsUsed}</div>
+            <div className="bg-[var(--bg-root)] rounded px-3 py-2">최고 {formatTime(bestTime)}</div>
+            <div className="bg-[var(--bg-root)] rounded px-3 py-2">연속 {dailyStreak}일</div>
           </div>
         )}
       </div>
     </header>
   );
 };
+
 
 export default Header;

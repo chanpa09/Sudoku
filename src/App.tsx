@@ -97,7 +97,7 @@ function App() {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col items-center pb-12 ${settings.darkMode ? 'bg-gray-950 text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
+    <div className={`min-h-screen flex flex-col items-center pb-12 transition-colors duration-300 ${settings.darkMode ? 'dark' : ''} theme-${settings.colorTheme} bg-[var(--bg-root)] text-[var(--text-main)]`}>
       <Header
         activeTab={activeTab}
         timer={timer}
@@ -116,11 +116,11 @@ function App() {
 
       <main className="w-full max-w-2xl px-4">
         {activeTab === 'daily' && (
-          <section className="bg-white border border-gray-200 rounded-lg p-5">
+          <section className="bg-[var(--bg-panel)] border border-[var(--border-main)] rounded-lg p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-gray-800">오늘의 문제</h2>
-                <p className="text-sm text-gray-600">오늘 {currentDailyDate} · {dailyStreak}일 연속</p>
+                <h2 className="text-xl font-bold text-[var(--text-main)]">오늘의 문제</h2>
+                <p className="text-sm text-[var(--text-dim)]">오늘 {currentDailyDate} · {dailyStreak}일 연속</p>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {(['easy', 'medium', 'hard'] as Difficulty[]).map(level => (
@@ -128,7 +128,7 @@ function App() {
                     key={level}
                     type="button"
                     onClick={() => startDailyAndPlay(level)}
-                    className="px-3 py-2 bg-emerald-100 text-emerald-800 rounded-lg font-semibold hover:bg-emerald-200"
+                    className="px-3 py-2 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded-lg font-semibold hover:bg-[var(--color-primary)]/20"
                   >
                     {difficultyLabels[level]}
                   </button>
@@ -136,14 +136,14 @@ function App() {
               </div>
             </div>
             <div className="mt-5 grid gap-3 text-sm">
-              <label className="flex flex-wrap items-center justify-between gap-2 bg-gray-100 rounded px-3 py-2">
-                <span className="font-semibold text-gray-700">지난 문제 날짜</span>
+              <label className="flex flex-wrap items-center justify-between gap-2 bg-[var(--bg-root)] rounded px-3 py-2">
+                <span className="font-semibold text-[var(--text-dim)]">지난 문제 날짜</span>
                 <input
                   type="date"
                   value={archiveDate}
                   max={currentDailyDate}
                   onChange={(event) => setArchiveDate(event.target.value)}
-                  className="rounded border border-gray-300 px-2 py-1"
+                  className="rounded border border-[var(--border-main)] bg-[var(--bg-panel)] px-2 py-1"
                 />
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -153,21 +153,21 @@ function App() {
                     type="button"
                     disabled={!hasArchiveDate}
                     onClick={() => startDailyAndPlay(level, archiveDate)}
-                    className="px-3 py-2 bg-slate-100 text-slate-800 rounded-lg font-semibold hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-2 bg-[var(--border-main)] text-[var(--text-main)] rounded-lg font-semibold hover:bg-[var(--border-main)]/80 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {difficultyLabels[level]}
                   </button>
                 ))}
               </div>
               <div className="pt-2">
-                <h3 className="mb-2 font-bold text-gray-800">최근 완료 기록</h3>
+                <h3 className="mb-2 font-bold text-[var(--text-main)]">최근 완료 기록</h3>
                 <div className="grid gap-2">
                   {dailyRecords.slice(0, 3).map(record => (
-                    <div key={`${record.date}:${record.difficulty}`} className="bg-gray-100 rounded px-3 py-2">
+                    <div key={`${record.date}:${record.difficulty}`} className="bg-[var(--bg-root)] rounded px-3 py-2 text-[var(--text-main)]">
                       {record.date} · {difficultyLabels[record.difficulty]} · {record.completed ? formatTime(record.time) : '진행 중'}
                     </div>
                   ))}
-                  {dailyRecords.length === 0 && <p className="text-gray-500">아직 완료한 오늘의 문제가 없습니다.</p>}
+                  {dailyRecords.length === 0 && <p className="text-[var(--text-dim)]">아직 완료한 오늘의 문제가 없습니다.</p>}
                 </div>
               </div>
             </div>
@@ -175,7 +175,7 @@ function App() {
         )}
 
         {hintMessage && isGameTab && (
-          <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded shadow-sm">
+          <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-400 text-yellow-800 dark:text-yellow-200 rounded shadow-sm">
             <p className="font-medium">힌트 {hintStep === null ? '' : hintStep + 1}/3: {hintMessage}</p>
           </div>
         )}
@@ -218,14 +218,14 @@ function App() {
         )}
 
         {activeTab === 'stats' && (
-          <section className="bg-white border border-gray-200 rounded-lg p-5">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">통계</h2>
+          <section className="bg-[var(--bg-panel)] border border-[var(--border-main)] rounded-lg p-5">
+            <h2 className="text-xl font-bold text-[var(--text-main)] mb-4">통계</h2>
             <div className="grid gap-3">
               {(['easy', 'medium', 'hard'] as Difficulty[]).map(level => {
                 const item = stats.byDifficulty[level];
                 const averageTime = item.won ? Math.round(item.totalTime / item.won) : null;
                 return (
-                  <div key={level} className="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-gray-100 rounded-lg p-3 text-sm">
+                  <div key={level} className="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-[var(--bg-root)] rounded-lg p-3 text-sm text-[var(--text-main)]">
                     <strong>{difficultyLabels[level]}</strong>
                     <span>승리 {item.won}/{item.played}</span>
                     <span>최고 {formatTime(item.bestTime)}</span>
@@ -235,20 +235,20 @@ function App() {
                 );
               })}
             </div>
-            <h3 className="mt-5 mb-2 font-bold text-gray-800">업적</h3>
+            <h3 className="mt-5 mb-2 font-bold text-[var(--text-main)]">업적</h3>
             <div className="flex flex-wrap gap-2">
               {stats.achievements.length === 0 ? (
-                <span className="text-gray-500">아직 달성한 업적이 없습니다.</span>
+                <span className="text-[var(--text-dim)]">아직 달성한 업적이 없습니다.</span>
               ) : stats.achievements.map(item => (
-                <span key={item} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">{achievementLabels[item] ?? item}</span>
+                <span key={item} className="px-3 py-1 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded-full text-sm font-semibold">{achievementLabels[item] ?? item}</span>
               ))}
             </div>
           </section>
         )}
 
         {activeTab === 'settings' && (
-          <section className="bg-white border border-gray-200 rounded-lg p-5">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">설정</h2>
+          <section className="bg-[var(--bg-panel)] border border-[var(--border-main)] rounded-lg p-5">
+            <h2 className="text-xl font-bold text-[var(--text-main)] mb-4">설정</h2>
             <div className="grid gap-3">
               {[
                 ['autoCheck', '실수 자동 확인'],
@@ -256,21 +256,22 @@ function App() {
                 ['duplicateHighlight', '중복 숫자 강조'],
                 ['darkMode', '다크 모드'],
               ].map(([key, label]) => (
-                <label key={key} className="flex items-center justify-between bg-gray-100 rounded-lg px-4 py-3">
-                  <span className="font-semibold text-gray-700">{label}</span>
+                <label key={key} className="flex items-center justify-between bg-[var(--bg-root)] rounded-lg px-4 py-3 cursor-pointer">
+                  <span className="font-semibold text-[var(--text-main)]">{label}</span>
                   <input
                     type="checkbox"
+                    className="w-5 h-5 accent-[var(--color-primary)]"
                     checked={Boolean(settings[key as keyof typeof settings])}
                     onChange={(event) => updateSettings({ [key]: event.target.checked })}
                   />
                 </label>
               ))}
-              <label className="flex items-center justify-between bg-gray-100 rounded-lg px-4 py-3">
-                <span className="font-semibold text-gray-700">테마</span>
+              <label className="flex items-center justify-between bg-[var(--bg-root)] rounded-lg px-4 py-3">
+                <span className="font-semibold text-[var(--text-main)]">테마</span>
                 <select
                   value={settings.colorTheme}
                   onChange={(event) => updateSettings({ colorTheme: event.target.value as typeof settings.colorTheme })}
-                  className="rounded border border-gray-300 px-2 py-1"
+                  className="rounded border border-[var(--border-main)] bg-[var(--bg-panel)] text-[var(--text-main)] px-2 py-1 outline-none focus:border-[var(--color-primary)]"
                 >
                   <option value="blue">파랑</option>
                   <option value="emerald">초록</option>
@@ -282,9 +283,9 @@ function App() {
         )}
 
         {gameStatus === 'won' && isGameTab && (
-          <div className="mt-8 p-6 bg-green-100 border-2 border-green-500 rounded-lg text-center">
-            <h2 className="text-2xl font-bold text-green-700">완료했습니다</h2>
-            <p className="text-green-700">{Math.floor(timer / 60)}분 {timer % 60}초 만에 풀었습니다. 입력 힌트는 {hintsUsed}번 사용했습니다.</p>
+          <div className="mt-8 p-6 bg-green-100 dark:bg-green-900/30 border-2 border-green-500 rounded-lg text-center">
+            <h2 className="text-2xl font-bold text-green-700 dark:text-green-400">완료했습니다</h2>
+            <p className="text-green-700 dark:text-green-300">{Math.floor(timer / 60)}분 {timer % 60}초 만에 풀었습니다. 입력 힌트는 {hintsUsed}번 사용했습니다.</p>
             <button
               type="button"
               onClick={() => gameMode === 'daily' ? startDailyAndPlay(difficulty, dailyDate ?? currentDailyDate) : startNewGame(difficulty)}
@@ -296,9 +297,9 @@ function App() {
         )}
 
         {gameStatus === 'lost' && isGameTab && (
-          <div className="mt-8 p-6 bg-red-100 border-2 border-red-500 rounded-lg text-center">
-            <h2 className="text-2xl font-bold text-red-700">게임 종료</h2>
-            <p className="text-red-700">실수 {maxMistakes}회에 도달했습니다.</p>
+          <div className="mt-8 p-6 bg-red-100 dark:bg-red-900/30 border-2 border-red-500 rounded-lg text-center">
+            <h2 className="text-2xl font-bold text-red-700 dark:text-red-400">게임 종료</h2>
+            <p className="text-red-700 dark:text-red-300">실수 {maxMistakes}회에 도달했습니다.</p>
             <button
               type="button"
               onClick={() => gameMode === 'daily' ? startDailyAndPlay(difficulty, dailyDate ?? currentDailyDate) : startNewGame(difficulty)}
@@ -311,6 +312,7 @@ function App() {
       </main>
     </div>
   );
+
 }
 
 export default App;

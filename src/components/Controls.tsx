@@ -79,8 +79,8 @@ const Controls: React.FC<ControlsProps> = ({
             type="button"
             disabled={isDisabled || (remainingDigits[num] <= 0 && stickyNumber !== num)}
             onClick={() => handleNumberClick(num)}
-            className={`aspect-square flex items-center justify-center rounded-lg text-lg sm:text-xl font-bold active:scale-95 transition-all disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 ${
-              stickyNumber === num ? 'bg-blue-700 text-white' : 'bg-blue-500 text-white hover:bg-blue-600'
+            className={`aspect-square flex items-center justify-center rounded-lg text-lg sm:text-xl font-bold active:scale-95 transition-all disabled:cursor-not-allowed disabled:bg-[var(--border-main)] disabled:text-[var(--text-dim)] ${
+              stickyNumber === num ? 'bg-[var(--color-primary-active)] text-white' : 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]'
             }`}
             title={`${remainingDigits[num]}개 남음`}
           >
@@ -94,8 +94,8 @@ const Controls: React.FC<ControlsProps> = ({
           type="button"
           onClick={onToggleNoteMode}
           disabled={isDisabled}
-          className={`py-3 rounded-lg font-bold transition-colors disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 ${
-            isNoteMode ? 'bg-orange-500 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+          className={`py-3 rounded-lg font-bold transition-colors disabled:cursor-not-allowed disabled:bg-[var(--border-main)] disabled:text-[var(--text-dim)] ${
+            isNoteMode ? 'bg-orange-500 text-white' : 'bg-[var(--bg-panel)] border border-[var(--border-main)] text-[var(--text-main)] hover:bg-[var(--bg-root)]'
           }`}
         >
           메모
@@ -104,7 +104,7 @@ const Controls: React.FC<ControlsProps> = ({
           type="button"
           onClick={onHint}
           disabled={isDisabled}
-          className="py-3 bg-yellow-400 text-yellow-900 rounded-lg font-bold hover:bg-yellow-500 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
+          className="py-3 bg-yellow-400 text-yellow-900 rounded-lg font-bold hover:bg-yellow-500 disabled:cursor-not-allowed disabled:bg-[var(--border-main)] disabled:text-[var(--text-dim)]"
         >
           힌트
         </button>
@@ -112,7 +112,7 @@ const Controls: React.FC<ControlsProps> = ({
           type="button"
           onClick={onUndo}
           disabled={isDisabled || !canUndo}
-          className="py-3 bg-white border border-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="py-3 bg-[var(--bg-panel)] border border-[var(--border-main)] text-[var(--text-main)] rounded-lg font-bold hover:bg-[var(--bg-root)] disabled:opacity-40 disabled:cursor-not-allowed"
         >
           실행 취소
         </button>
@@ -120,17 +120,17 @@ const Controls: React.FC<ControlsProps> = ({
           <button
             type="button"
             onClick={() => setIsMoreOpen(open => !open)}
-            className="w-full py-3 bg-gray-800 text-white rounded-lg font-bold hover:bg-gray-900"
+            className="w-full py-3 bg-gray-800 dark:bg-gray-700 text-white rounded-lg font-bold hover:bg-gray-900 dark:hover:bg-gray-600"
           >
             더보기
           </button>
           {isMoreOpen && (
-            <div className="absolute right-0 bottom-14 z-20 w-56 rounded-lg border border-gray-200 bg-white shadow-xl overflow-hidden text-sm">
+            <div className="absolute right-0 bottom-14 z-20 w-56 rounded-lg border border-[var(--border-main)] bg-[var(--bg-panel)] shadow-xl overflow-hidden text-sm">
               <button
                 type="button"
                 onClick={onRedo}
                 disabled={isDisabled || !canRedo}
-                className="w-full text-left px-4 py-3 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                className="w-full text-left px-4 py-3 font-semibold text-[var(--text-main)] hover:bg-[var(--bg-root)] disabled:opacity-40"
               >
                 다시 실행
               </button>
@@ -138,7 +138,7 @@ const Controls: React.FC<ControlsProps> = ({
                 type="button"
                 onClick={onClear}
                 disabled={isDisabled}
-                className="w-full text-left px-4 py-3 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                className="w-full text-left px-4 py-3 font-semibold text-[var(--text-main)] hover:bg-[var(--bg-root)] disabled:opacity-40"
               >
                 칸 지우기
               </button>
@@ -146,7 +146,7 @@ const Controls: React.FC<ControlsProps> = ({
                 type="button"
                 onClick={onAutoNotes}
                 disabled={isDisabled}
-                className="w-full text-left px-4 py-3 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                className="w-full text-left px-4 py-3 font-semibold text-[var(--text-main)] hover:bg-[var(--bg-root)] disabled:opacity-40"
               >
                 자동 메모
               </button>
@@ -154,12 +154,12 @@ const Controls: React.FC<ControlsProps> = ({
                 type="button"
                 onClick={gameStatus === 'paused' ? onResume : onPause}
                 disabled={isEnded}
-                className="w-full text-left px-4 py-3 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                className="w-full text-left px-4 py-3 font-semibold text-[var(--text-main)] hover:bg-[var(--bg-root)] disabled:opacity-40"
               >
                 {gameStatus === 'paused' ? '계속하기' : '일시정지'}
               </button>
-              <div className="border-t border-gray-200 p-2">
-                <div className="px-2 pb-1 text-xs font-bold uppercase text-gray-400">새 게임</div>
+              <div className="border-t border-[var(--border-main)] p-2">
+                <div className="px-2 pb-1 text-xs font-bold uppercase text-[var(--text-dim)]">새 게임</div>
                 <div className="grid grid-cols-3 gap-1">
                   {(Object.keys(difficultyLabels) as Difficulty[]).map(level => (
                     <button
@@ -170,7 +170,7 @@ const Controls: React.FC<ControlsProps> = ({
                         setIsMoreOpen(false);
                       }}
                       className={`px-2 py-2 rounded text-xs font-bold ${
-                        difficulty === level ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800 hover:bg-green-200'
+                        difficulty === level ? 'bg-green-600 text-white' : 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50'
                       }`}
                     >
                       {difficultyLabels[level]}
@@ -184,10 +184,11 @@ const Controls: React.FC<ControlsProps> = ({
       </div>
 
       {stickyNumber && (
-        <div className="text-center text-xs text-blue-700">
+        <div className="text-center text-xs text-[var(--color-primary)]">
           {stickyNumber} 고정 입력 중입니다. 끄려면 {stickyNumber}을 한 번 더 누르세요.
         </div>
       )}
+
     </div>
   );
 };

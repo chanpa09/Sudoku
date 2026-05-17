@@ -60,7 +60,7 @@ const Board: React.FC<BoardProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] w-full max-w-[500px] aspect-square border-2 border-gray-800 shadow-2xl mx-auto" role="grid" aria-label="스도쿠 보드">
+    <div className="grid grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] w-full max-w-[500px] aspect-square border-2 border-[var(--border-board)] shadow-2xl mx-auto" role="grid" aria-label="스도쿠 보드">
       {currentBoard.map((row: number[], rowIndex: number) =>
         row.map((cell: number, colIndex: number) => {
           const isSelected = selectedCell?.row === rowIndex && selectedCell?.col === colIndex;
@@ -68,8 +68,8 @@ const Board: React.FC<BoardProps> = ({
           const isSameNumber = showDuplicates && selectedValue !== 0 && selectedValue === cell;
           
           const borderClasses = `
-            ${colIndex % 3 === 2 && colIndex !== 8 ? 'border-r-2 border-r-gray-800' : ''}
-            ${rowIndex % 3 === 2 && rowIndex !== 8 ? 'border-b-2 border-b-gray-800' : ''}
+            ${colIndex % 3 === 2 && colIndex !== 8 ? 'border-r-2 border-r-[var(--border-board)]' : ''}
+            ${rowIndex % 3 === 2 && rowIndex !== 8 ? 'border-b-2 border-b-[var(--border-board)]' : ''}
           `;
 
           return (

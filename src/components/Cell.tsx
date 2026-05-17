@@ -32,18 +32,18 @@ const Cell: React.FC<CellProps> = ({
   const isInitial = initialValue !== 0;
 
   const getBgColor = () => {
-    if (isPaused) return 'bg-gray-100';
-    if (isSelected) return 'bg-blue-300';
-    if (isSameNumber && value !== 0) return 'bg-blue-100';
-    if (isRelated) return 'bg-sky-50';
-    return 'bg-white';
+    if (isPaused) return 'bg-[var(--bg-cell-paused)]';
+    if (isSelected) return 'bg-[var(--bg-cell-selected)]';
+    if (isSameNumber && value !== 0) return 'bg-[var(--bg-cell-same)]';
+    if (isRelated) return 'bg-[var(--bg-cell-related)]';
+    return 'bg-[var(--bg-cell)]';
   };
 
   const getTextColor = () => {
     if (isPaused) return 'text-transparent';
-    if (isConflict || isMistake) return 'text-red-500';
-    if (isInitial) return 'text-gray-900 font-bold';
-    return 'text-blue-600';
+    if (isConflict || isMistake) return 'text-[var(--text-cell-error)]';
+    if (isInitial) return 'text-[var(--text-cell-initial)] font-bold';
+    return 'text-[var(--text-cell-entered)]';
   };
 
   return (
@@ -59,7 +59,7 @@ const Cell: React.FC<CellProps> = ({
           onClick();
         }
       }}
-      className={`relative w-full h-full border border-gray-300 flex items-center justify-center cursor-pointer text-xl sm:text-2xl transition-colors ${getBgColor()} ${getTextColor()}`}
+      className={`relative w-full h-full border border-[var(--border-cell)] flex items-center justify-center cursor-pointer text-xl sm:text-2xl transition-colors ${getBgColor()} ${getTextColor()}`}
     >
       {isPaused ? (
         ''
@@ -68,7 +68,7 @@ const Cell: React.FC<CellProps> = ({
       ) : (
         <div className="grid grid-cols-3 grid-rows-3 gap-0 w-full h-full p-0.5">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-            <div key={n} className="text-[8px] sm:text-[10px] leading-none flex items-center justify-center text-gray-400">
+            <div key={n} className="text-[8px] sm:text-[10px] leading-none flex items-center justify-center text-[var(--text-cell-note)]">
               {notes.has(n) ? n : ''}
             </div>
           ))}
@@ -76,6 +76,7 @@ const Cell: React.FC<CellProps> = ({
       )}
     </div>
   );
+
 };
 
 export default Cell;
