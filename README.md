@@ -1,74 +1,75 @@
-# 🧩 Sudoku Master
+# 스도쿠
 
-React와 TypeScript, Tailwind CSS v4를 사용하여 만든 현대적인 스도쿠 웹 애플리케이션입니다. 동적인 퍼즐 생성 알고리즘과 다양한 편의 기능을 제공합니다.
+React, TypeScript, Vite, Tailwind CSS v4로 만든 한국어 스도쿠 웹 앱입니다. 퍼즐 생성, 오늘의 문제, 메모, 힌트, 통계, 설정 저장 등 스도쿠 플레이에 필요한 기능을 브라우저에서 제공합니다.
 
-![Sudoku Preview](https://via.placeholder.com/800x450?text=Sudoku+Master+App)
+## 주요 기능
 
-## ✨ 주요 기능 (Key Features)
+- **한국어 UI:** 메뉴, 설정, 통계, 힌트, 접근성 라벨까지 한국어로 표시합니다.
+- **난이도 선택:** 쉬움, 보통, 어려움 난이도로 새 게임을 시작할 수 있습니다.
+- **오늘의 문제:** 날짜와 난이도 기준으로 동일한 일일 퍼즐을 플레이하고, 지난 날짜의 문제도 선택할 수 있습니다.
+- **메모와 자동 메모:** 빈 칸에 후보 숫자를 직접 적거나 현재 보드 기준으로 자동 입력할 수 있습니다.
+- **단계형 힌트:** 단일 후보, 숨은 단일 후보, 고정 후보, 드러난 쌍 등 기법 기반 힌트를 단계적으로 제공합니다.
+- **게임 보조 기능:** 실수 자동 확인, 중복 숫자 강조, 실행 취소/다시 실행, 일시정지, 고정 숫자 입력을 지원합니다.
+- **통계와 업적:** 난이도별 승리 수, 최고 기록, 평균 시간, 힌트 사용량, 업적을 기록합니다.
+- **로컬 저장:** 진행 중인 게임, 설정, 통계, 오늘의 문제 기록을 브라우저 로컬 스토리지에 저장합니다.
+- **반응형 화면:** 모바일과 데스크톱에서 보드를 중심으로 간결하게 사용할 수 있습니다.
 
-- **동적 퍼즐 생성 (Dynamic Puzzle Generation):** 백트래킹 알고리즘을 사용하여 매번 새로운 풀이 가능한 스도쿠 보드를 생성합니다.
-- **메모 모드 (Note Mode):** 각 칸에 들어갈 수 있는 숫자 후보들을 메모할 수 있습니다.
-- **실시간 검증 (Real-time Validation):** 규칙에 어긋나는 숫자를 입력하면 즉시 빨간색으로 표시됩니다.
-- **힌트 시스템 (Hint System):** 막히는 구간에서 정답을 한 칸씩 확인할 수 있습니다.
-- **타이머 (Timer):** 퍼즐을 푸는 데 걸리는 시간을 측정합니다.
-- **반응형 디자인 (Responsive UI):** Tailwind CSS v4를 활용하여 모바일과 데스크톱 환경 모두에서 최적화된 화면을 제공합니다.
+## 기술 스택
 
-## 🛠 기술 스택 (Tech Stack)
-
-- **Frontend:** React (TypeScript)
+- **Frontend:** React 19, TypeScript
 - **Styling:** Tailwind CSS v4
 - **Build Tool:** Vite
-- **Algorithm:** Backtracking (for Sudoku solving & generation)
+- **Core Logic:** 스도쿠 생성/검증, 유일 해답 퍼즐 생성, 시드 기반 일일 퍼즐
+- **Storage:** Browser Local Storage
 
-## 🚀 시작하기 (Getting Started)
+## 시작하기
 
-### 사전 준비 (Prerequisites)
-- [Node.js](https://nodejs.org/) (v18 이상 권장)
+### 사전 준비
+
+- Node.js
 - npm
 
-### 설치 및 실행 (Installation & Run)
+### 설치 및 실행
 
-1. 저장소 복제:
-   ```bash
-   git clone https://github.com/chanpa09/Sudoku.git
-   cd Sudoku
-   ```
+```bash
+npm install
+npm run dev
+```
 
-2. 의존성 설치:
-   ```bash
-   npm install
-   ```
+개발 서버가 실행되면 브라우저에서 `http://localhost:5173`으로 접속합니다.
 
-3. 개발 서버 실행:
-   ```bash
-   npm run dev
-   ```
-   브라우저에서 `http://localhost:5173`으로 접속하세요.
+### 빌드
 
-4. 프로젝트 빌드:
-   ```bash
-   npm run build
-   ```
+```bash
+npm run build
+```
 
-## 🎮 게임 방법 (How to Play)
+### 린트
 
-1. 비어 있는 칸을 클릭하여 선택합니다.
-2. 아래 숫자 패드(1-9)를 클릭하여 숫자를 입력합니다.
-3. 숫자를 한 번 더 클릭하면 입력된 숫자가 삭제됩니다.
-4. **Notes 버튼:** 토글하여 메모 모드를 켜고 끌 수 있습니다. 메모 모드에서는 칸에 작은 숫자로 후보군을 표시합니다.
-5. **Hint 버튼:** 선택한 칸의 정답을 채워줍니다.
-6. **New Game:** 현재 게임을 초기화하고 새로운 퍼즐을 생성합니다.
+```bash
+npm run lint
+```
 
-## 📂 폴더 구조 (Folder Structure)
+## 게임 방법
 
-- `src/utils/sudoku.ts`: 스도쿠 핵심 알고리즘 (생성, 검증, 해결)
-- `src/hooks/useSudoku.ts`: 게임 상태 및 비즈니스 로직 관리 커스텀 훅
-- `src/components/`: UI 컴포넌트
-  - `Board.tsx`: 9x9 그리드 렌더링
-  - `Cell.tsx`: 개별 칸 렌더링 및 스타일링
-  - `Controls.tsx`: 숫자 패드 및 액션 버튼
-  - `Header.tsx`: 타이머 및 게임 정보 표시
+1. 빈 칸을 선택한 뒤 숫자 패드에서 1-9를 눌러 입력합니다.
+2. 같은 숫자를 연속으로 누르면 해당 숫자가 고정 입력 상태가 됩니다.
+3. **메모**를 켜면 선택한 칸에 후보 숫자를 작은 숫자로 기록합니다.
+4. **힌트**는 처음에는 방향을 알려주고, 단계가 진행되면 더 구체적인 설명 또는 입력을 제공합니다.
+5. **더보기** 메뉴에서 다시 실행, 칸 지우기, 자동 메모, 일시정지, 새 게임을 사용할 수 있습니다.
+6. 메뉴에서 오늘의 문제, 통계, 설정 화면으로 이동할 수 있습니다.
 
-## 📝 라이선스 (License)
+## 프로젝트 구조
 
-이 프로젝트는 MIT 라이선스를 따릅니다.
+- `src/App.tsx`: 화면 전환, 주요 섹션 렌더링, 한국어 표시 문구
+- `src/hooks/useSudoku.ts`: 게임 상태, 저장, 통계, 입력, 힌트 흐름 관리
+- `src/utils/sudoku.ts`: 스도쿠 보드 생성, 검증, 퍼즐 생성 로직
+- `src/utils/hintLogic.ts`: 힌트 기법 판정과 힌트 메시지 생성
+- `src/components/Board.tsx`: 9x9 보드 렌더링
+- `src/components/Cell.tsx`: 개별 셀 표시와 접근성 라벨
+- `src/components/Controls.tsx`: 숫자 패드와 게임 액션
+- `src/components/Header.tsx`: 상단 상태, 메뉴, 요약 정보
+
+## 라이선스
+
+MIT

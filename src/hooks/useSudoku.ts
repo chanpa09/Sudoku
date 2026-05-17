@@ -1,123 +1,922 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { Board } from '../utils/sudoku';
-import { generateSolvedBoard, generatePuzzle } from '../utils/sudoku';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Board, Difficulty } from '../utils/sudoku';
+import { cloneBoard, generatePuzzle, generateSolvedBoard } from '../utils/sudoku';
+import { findAdvancedHint, getPossibleValues, type Hint } from '../utils/hintLogic';
 
-export type { Board };
+export type { Board, Difficulty };
 export type CellSelection = { row: number; col: number } | null;
+export type GameStatus = 'playing' | 'paused' | 'won' | 'lost';
+export type GameMode = 'classic' | 'daily';
+export type AppTab = 'classic' | 'daily' | 'stats' | 'settings';
 export type Notes = Set<number>[][];
 
-export const useSudoku = () => {
-  const [solutionBoard, setSolutionBoard] = useState<Board>([]);
-  const [initialBoard, setInitialBoard] = useState<Board>([]);
-  const [currentBoard, setCurrentBoard] = useState<Board>([]);
-  const [notes, setNotes] = useState<Notes>([]);
-  const [selectedCell, setSelectedCell] = useState<CellSelection>(null);
-  const [isNoteMode, setIsNoteMode] = useState(false);
-  const [timer, setTimer] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>('playing');
+export type GameSettings = {
+  autoCheck: boolean;
+  mistakeLimit: boolean;
+  duplicateHighlight: boolean;
+  darkMode: boolean;
+  colorTheme: 'blue' | 'emerald' | 'violet';
+};
 
-  const startNewGame = useCallback((difficulty: number = 40) => {
-    const solved = generateSolvedBoard();
-    const puzzle = generatePuzzle(solved, difficulty);
-    
-    setSolutionBoard(solved);
-    setInitialBoard(puzzle.map(row => [...row]));
-    setCurrentBoard(puzzle.map(row => [...row]));
-    setNotes(Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set<number>())));
-    setSelectedCell(null);
-    setTimer(0);
-    setIsPaused(false);
-    setGameStatus('playing');
+export type DifficultyStats = {
+  played: number;
+  won: number;
+  lost: number;
+  bestTime: number | null;
+  totalTime: number;
+  totalMistakes: number;
+  totalHints: number;
+};
+
+export type GameStats = {
+  byDifficulty: Record<Difficulty, DifficultyStats>;
+  achievements: string[];
+};
+
+export type DailyRecord = {
+  date: string;
+  difficulty: Difficulty;
+  completed: boolean;
+  time: number | null;
+  mistakes: number;
+  hints: number;
+};
+
+type HistoryItem = {
+  currentBoard: Board;
+  notes: number[][][];
+  mistakes: number;
+  gameStatus: GameStatus;
+};
+
+type SavedGameState = {
+  version: 2;
+  mode: GameMode;
+  dailyDate: string | null;
+  solutionBoard: Board;
+  initialBoard: Board;
+  currentBoard: Board;
+  notes: number[][][];
+  selectedCell: CellSelection;
+  isNoteMode: boolean;
+  stickyNumber: number | null;
+  difficulty: Difficulty;
+  timer: number;
+  mistakes: number;
+  hintsUsed: number;
+  explanationHintsUsed: number;
+  gameStatus: GameStatus;
+  past: HistoryItem[];
+  future: HistoryItem[];
+  resultRecorded: boolean;
+};
+
+type HintState = {
+  hint: Hint;
+  step: number;
+} | null;
+
+const STORAGE_KEY = 'sudoku-game-state-v2';
+const LEGACY_STORAGE_KEY = 'sudoku-game-state';
+const SETTINGS_KEY = 'sudoku-settings-v1';
+const STATS_KEY = 'sudoku-stats-v1';
+const LEGACY_STATS_KEY = 'sudoku-stats';
+const DAILY_RECORDS_KEY = 'sudoku-daily-records-v1';
+const RECORDED_RESULTS_KEY = 'sudoku-recorded-results-v1';
+const MAX_MISTAKES = 3;
+
+const difficulties: Difficulty[] = ['easy', 'medium', 'hard'];
+const statuses: GameStatus[] = ['playing', 'paused', 'won', 'lost'];
+
+const defaultSettings: GameSettings = {
+  autoCheck: true,
+  mistakeLimit: true,
+  duplicateHighlight: true,
+  darkMode: false,
+  colorTheme: 'blue',
+};
+
+const emptyDifficultyStats = (): DifficultyStats => ({
+  played: 0,
+  won: 0,
+  lost: 0,
+  bestTime: null,
+  totalTime: 0,
+  totalMistakes: 0,
+  totalHints: 0,
+});
+
+const defaultStats = (): GameStats => ({
+  byDifficulty: {
+    easy: emptyDifficultyStats(),
+    medium: emptyDifficultyStats(),
+    hard: emptyDifficultyStats(),
+  },
+  achievements: [],
+});
+
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const todayKey = (): string => formatLocalDate(new Date());
+
+const dailySeed = (date: string, difficulty: Difficulty): string => `daily:${date}:${difficulty}`;
+
+const emptyNotes = (): Notes =>
+  Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set<number>()));
+
+const serializeNotes = (notes: Notes): number[][][] =>
+  notes.map(row => row.map(cellNotes => [...cellNotes].sort((a, b) => a - b)));
+
+const deserializeNotes = (notes: number[][][]): Notes =>
+  notes.map(row => row.map(cellNotes => new Set(cellNotes)));
+
+const isBoard = (value: unknown): value is Board =>
+  Array.isArray(value)
+  && value.length === 9
+  && value.every(row =>
+    Array.isArray(row)
+    && row.length === 9
+    && row.every(cell => Number.isInteger(cell) && cell >= 0 && cell <= 9)
+  );
+
+const isSavedNotes = (value: unknown): value is number[][][] =>
+  Array.isArray(value)
+  && value.length === 9
+  && value.every(row =>
+    Array.isArray(row)
+    && row.length === 9
+    && row.every(cellNotes =>
+      Array.isArray(cellNotes)
+      && cellNotes.every(note => Number.isInteger(note) && note >= 1 && note <= 9)
+    )
+  );
+
+const isSelection = (value: unknown): value is CellSelection => {
+  if (value === null) return true;
+  if (typeof value !== 'object') return false;
+  const selection = value as { row?: unknown; col?: unknown };
+  return typeof selection.row === 'number'
+    && typeof selection.col === 'number'
+    && Number.isInteger(selection.row)
+    && Number.isInteger(selection.col)
+    && selection.row >= 0
+    && selection.row <= 8
+    && selection.col >= 0
+    && selection.col <= 8;
+};
+
+const createGameState = (
+  difficulty: Difficulty = 'medium',
+  mode: GameMode = 'classic',
+  date: string | null = null,
+): SavedGameState => {
+  const seed = mode === 'daily' && date ? dailySeed(date, difficulty) : undefined;
+  const solved = generateSolvedBoard(seed);
+  const puzzle = generatePuzzle(solved, difficulty, seed);
+
+  return {
+    version: 2,
+    mode,
+    dailyDate: date,
+    solutionBoard: solved,
+    initialBoard: cloneBoard(puzzle),
+    currentBoard: cloneBoard(puzzle),
+    notes: serializeNotes(emptyNotes()),
+    selectedCell: null,
+    isNoteMode: false,
+    stickyNumber: null,
+    difficulty,
+    timer: 0,
+    mistakes: 0,
+    hintsUsed: 0,
+    explanationHintsUsed: 0,
+    gameStatus: 'playing',
+    past: [],
+    future: [],
+    resultRecorded: false,
+  };
+};
+
+const pushHistory = (current: SavedGameState): SavedGameState => {
+  const historyItem: HistoryItem = {
+    currentBoard: cloneBoard(current.currentBoard),
+    notes: current.notes,
+    mistakes: current.mistakes,
+    gameStatus: current.gameStatus,
+  };
+
+  return {
+    ...current,
+    past: [...current.past, historyItem].slice(-50),
+    future: [],
+  };
+};
+
+const normalizeHistory = (value: unknown): HistoryItem[] => {
+  if (!Array.isArray(value)) return [];
+  return value.filter(item => {
+    const candidate = item as Partial<HistoryItem>;
+    return isBoard(candidate.currentBoard)
+      && isSavedNotes(candidate.notes)
+      && typeof candidate.mistakes === 'number'
+      && statuses.includes(candidate.gameStatus as GameStatus);
+  }) as HistoryItem[];
+};
+
+const normalizeSavedGame = (value: unknown): SavedGameState | null => {
+  if (typeof value !== 'object' || value === null) return null;
+  const parsed = value as Partial<SavedGameState>;
+
+  if (!isBoard(parsed.solutionBoard) || !isBoard(parsed.initialBoard) || !isBoard(parsed.currentBoard)) return null;
+  if (!isSavedNotes(parsed.notes)) return null;
+  if (!isSelection(parsed.selectedCell)) return null;
+  if (!difficulties.includes(parsed.difficulty as Difficulty)) return null;
+  if (!statuses.includes(parsed.gameStatus as GameStatus)) return null;
+
+  return {
+    version: 2,
+    mode: parsed.mode === 'daily' ? 'daily' : 'classic',
+    dailyDate: typeof parsed.dailyDate === 'string' ? parsed.dailyDate : null,
+    solutionBoard: parsed.solutionBoard,
+    initialBoard: parsed.initialBoard,
+    currentBoard: parsed.currentBoard,
+    notes: parsed.notes,
+    selectedCell: parsed.selectedCell,
+    isNoteMode: parsed.isNoteMode === true,
+    stickyNumber: typeof parsed.stickyNumber === 'number' ? parsed.stickyNumber : null,
+    difficulty: parsed.difficulty as Difficulty,
+    timer: typeof parsed.timer === 'number' && parsed.timer >= 0 ? parsed.timer : 0,
+    mistakes: typeof parsed.mistakes === 'number' && parsed.mistakes >= 0 ? parsed.mistakes : 0,
+    hintsUsed: typeof parsed.hintsUsed === 'number' && parsed.hintsUsed >= 0 ? parsed.hintsUsed : 0,
+    explanationHintsUsed: typeof parsed.explanationHintsUsed === 'number' && parsed.explanationHintsUsed >= 0 ? parsed.explanationHintsUsed : 0,
+    gameStatus: parsed.gameStatus === 'paused' ? 'playing' : parsed.gameStatus as GameStatus,
+    past: normalizeHistory(parsed.past),
+    future: normalizeHistory(parsed.future),
+    resultRecorded: parsed.resultRecorded === true,
+  };
+};
+
+const migrateLegacyGame = (value: unknown): SavedGameState | null => {
+  if (typeof value !== 'object' || value === null) return null;
+  const parsed = value as Partial<SavedGameState>;
+
+  if (!isBoard(parsed.solutionBoard) || !isBoard(parsed.initialBoard) || !isBoard(parsed.currentBoard)) return null;
+  if (!isSavedNotes(parsed.notes)) return null;
+
+  return {
+    version: 2,
+    mode: 'classic',
+    dailyDate: null,
+    solutionBoard: parsed.solutionBoard,
+    initialBoard: parsed.initialBoard,
+    currentBoard: parsed.currentBoard,
+    notes: parsed.notes,
+    selectedCell: isSelection(parsed.selectedCell) ? parsed.selectedCell : null,
+    isNoteMode: parsed.isNoteMode === true,
+    stickyNumber: null,
+    difficulty: difficulties.includes(parsed.difficulty as Difficulty) ? parsed.difficulty as Difficulty : 'medium',
+    timer: typeof parsed.timer === 'number' && parsed.timer >= 0 ? parsed.timer : 0,
+    mistakes: typeof parsed.mistakes === 'number' && parsed.mistakes >= 0 ? parsed.mistakes : 0,
+    hintsUsed: typeof parsed.hintsUsed === 'number' && parsed.hintsUsed >= 0 ? parsed.hintsUsed : 0,
+    explanationHintsUsed: 0,
+    gameStatus: statuses.includes(parsed.gameStatus as GameStatus) && parsed.gameStatus !== 'paused'
+      ? parsed.gameStatus as GameStatus
+      : 'playing',
+    past: normalizeHistory(parsed.past),
+    future: normalizeHistory(parsed.future),
+    resultRecorded: false,
+  };
+};
+
+const loadSavedGame = (): SavedGameState => {
+  const raw = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (!raw) return createGameState();
+
+  try {
+    const parsed = JSON.parse(raw);
+    return normalizeSavedGame(parsed) ?? migrateLegacyGame(parsed) ?? createGameState();
+  } catch {
+    return createGameState();
+  }
+};
+
+const loadSettings = (): GameSettings => {
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return defaultSettings;
+    return { ...defaultSettings, ...JSON.parse(raw) };
+  } catch {
+    return defaultSettings;
+  }
+};
+
+const normalizeStats = (value: unknown): GameStats => {
+  if (typeof value !== 'object' || value === null) return defaultStats();
+  const parsed = value as Partial<GameStats> & Partial<Record<Difficulty, number | null>>;
+  const base = defaultStats();
+
+  for (const difficulty of difficulties) {
+    const current = parsed.byDifficulty?.[difficulty];
+    if (current) {
+      base.byDifficulty[difficulty] = { ...base.byDifficulty[difficulty], ...current };
+    } else if (difficulty in parsed) {
+      base.byDifficulty[difficulty].bestTime = parsed[difficulty] ?? null;
+    }
+  }
+
+  base.achievements = Array.isArray(parsed.achievements) ? parsed.achievements.filter(item => typeof item === 'string') : [];
+  return base;
+};
+
+const loadStats = (): GameStats => {
+  try {
+    const raw = window.localStorage.getItem(STATS_KEY) ?? window.localStorage.getItem(LEGACY_STATS_KEY);
+    if (!raw) return defaultStats();
+    return normalizeStats(JSON.parse(raw));
+  } catch {
+    return defaultStats();
+  }
+};
+
+const loadDailyRecords = (): DailyRecord[] => {
+  try {
+    const raw = window.localStorage.getItem(DAILY_RECORDS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(record =>
+      typeof record.date === 'string'
+      && difficulties.includes(record.difficulty)
+      && typeof record.completed === 'boolean'
+    );
+  } catch {
+    return [];
+  }
+};
+
+const getRemainingDigits = (board: Board): Record<number, number> => {
+  const counts: Record<number, number> = { 1: 9, 2: 9, 3: 9, 4: 9, 5: 9, 6: 9, 7: 9, 8: 9, 9: 9 };
+  for (const row of board) {
+    for (const cell of row) {
+      if (cell !== 0) counts[cell]--;
+    }
+  }
+  return counts;
+};
+
+const achievementLabels = {
+  firstWin: '첫 승리',
+  noHints: '힌트 없이 완료',
+  noMistakes: '실수 없이 완료',
+  hardWin: '어려움 완료',
+  dailyStreak: '7일 연속',
+};
+
+const addAchievements = (stats: GameStats, additions: string[]): GameStats => ({
+  ...stats,
+  achievements: [...new Set([...stats.achievements, ...additions])],
+});
+
+const resultIdForGame = (game: SavedGameState): string =>
+  `${game.gameStatus}:${game.mode}:${game.dailyDate ?? 'classic'}:${game.difficulty}:${JSON.stringify(game.initialBoard)}`;
+
+const loadRecordedResults = (): string[] => {
+  try {
+    const raw = window.localStorage.getItem(RECORDED_RESULTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(item => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
+const hasRecordedResult = (id: string): boolean => loadRecordedResults().includes(id);
+
+const markRecordedResult = (id: string): void => {
+  const next = [...new Set([...loadRecordedResults(), id])].slice(-200);
+  window.localStorage.setItem(RECORDED_RESULTS_KEY, JSON.stringify(next));
+};
+
+const calculateStreak = (records: DailyRecord[]): number => {
+  const completedDates = new Set(records.filter(record => record.completed).map(record => record.date));
+  let streak = 0;
+  const cursor = new Date();
+
+  while (completedDates.has(formatLocalDate(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+};
+
+export const useSudoku = () => {
+  const [game, setGame] = useState<SavedGameState>(() => loadSavedGame());
+  const [settings, setSettings] = useState<GameSettings>(() => loadSettings());
+  const [stats, setStats] = useState<GameStats>(() => loadStats());
+  const [dailyRecords, setDailyRecords] = useState<DailyRecord[]>(() => loadDailyRecords());
+  const [hintState, setHintState] = useState<HintState>(null);
+  const [activeTab, setActiveTab] = useState<AppTab>('classic');
+
+  const notes = useMemo(() => deserializeNotes(game.notes), [game.notes]);
+  const remainingDigits = useMemo(() => getRemainingDigits(game.currentBoard), [game.currentBoard]);
+  const dailyDate = todayKey();
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(game));
+  }, [game]);
+
+  useEffect(() => {
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }, [settings]);
+
+  useEffect(() => {
+    window.localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+  }, [stats]);
+
+  useEffect(() => {
+    window.localStorage.setItem(DAILY_RECORDS_KEY, JSON.stringify(dailyRecords));
+  }, [dailyRecords]);
+
+  useEffect(() => {
+    if (game.gameStatus !== 'playing') return;
+
+    const interval = window.setInterval(() => {
+      setGame(current => ({ ...current, timer: current.timer + 1 }));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [game.gameStatus]);
+
+  const checkWin = useCallback((board: Board, solutionBoard: Board): boolean => {
+    for (let row = 0; row < 9; row++) {
+      for (let col = 0; col < 9; col++) {
+        if (board[row][col] !== solutionBoard[row][col]) return false;
+      }
+    }
+    return true;
+  }, []);
+
+  const updateSettings = (nextSettings: Partial<GameSettings>) => {
+    setSettings(current => ({ ...current, ...nextSettings }));
+  };
+
+  const clearHint = () => setHintState(null);
+
+  const recordCompletion = useCallback((completedGame: SavedGameState) => {
+    const dailyRecordKey = completedGame.mode === 'daily' && completedGame.dailyDate
+      ? `${completedGame.dailyDate}:${completedGame.difficulty}`
+      : null;
+    if (dailyRecordKey && dailyRecords.some(record => `${record.date}:${record.difficulty}` === dailyRecordKey && record.completed)) {
+      return;
+    }
+
+    setStats(current => {
+      const difficultyStats = current.byDifficulty[completedGame.difficulty];
+      const wonStats = {
+        ...difficultyStats,
+        played: difficultyStats.played + 1,
+        won: difficultyStats.won + 1,
+        bestTime: difficultyStats.bestTime === null
+          ? completedGame.timer
+          : Math.min(difficultyStats.bestTime, completedGame.timer),
+        totalTime: difficultyStats.totalTime + completedGame.timer,
+        totalMistakes: difficultyStats.totalMistakes + completedGame.mistakes,
+        totalHints: difficultyStats.totalHints + completedGame.hintsUsed,
+      };
+      const achievements = [];
+      if (Object.values(current.byDifficulty).every(item => item.won === 0)) achievements.push(achievementLabels.firstWin);
+      if (completedGame.hintsUsed === 0 && completedGame.explanationHintsUsed === 0) achievements.push(achievementLabels.noHints);
+      if (completedGame.mistakes === 0) achievements.push(achievementLabels.noMistakes);
+      if (completedGame.difficulty === 'hard') achievements.push(achievementLabels.hardWin);
+
+      return addAchievements({
+        ...current,
+        byDifficulty: {
+          ...current.byDifficulty,
+          [completedGame.difficulty]: wonStats,
+        },
+      }, achievements);
+    });
+
+    if (completedGame.mode === 'daily' && completedGame.dailyDate) {
+      const completedDate = completedGame.dailyDate;
+      setDailyRecords(current => {
+        const key = `${completedDate}:${completedGame.difficulty}`;
+        const existing = current.find(record => `${record.date}:${record.difficulty}` === key);
+        if (existing?.completed) return current;
+
+        const nextRecord: DailyRecord = {
+          date: completedDate,
+          difficulty: completedGame.difficulty,
+          completed: true,
+          time: completedGame.timer,
+          mistakes: completedGame.mistakes,
+          hints: completedGame.hintsUsed,
+        };
+        const withoutCurrent = current.filter(record => `${record.date}:${record.difficulty}` !== key);
+        const next = [...withoutCurrent, nextRecord].sort((a, b) => b.date.localeCompare(a.date));
+
+        if (calculateStreak(next) >= 7) {
+          setStats(statsValue => addAchievements(statsValue, [achievementLabels.dailyStreak]));
+        }
+
+        return next;
+      });
+    }
+  }, [dailyRecords]);
+
+  const finishLostGame = useCallback((lostGame: SavedGameState) => {
+    setStats(current => {
+      const difficultyStats = current.byDifficulty[lostGame.difficulty];
+      return {
+        ...current,
+        byDifficulty: {
+          ...current.byDifficulty,
+          [lostGame.difficulty]: {
+            ...difficultyStats,
+            played: difficultyStats.played + 1,
+            lost: difficultyStats.lost + 1,
+            totalTime: difficultyStats.totalTime + lostGame.timer,
+            totalMistakes: difficultyStats.totalMistakes + lostGame.mistakes,
+            totalHints: difficultyStats.totalHints + lostGame.hintsUsed,
+          },
+        },
+      };
+    });
   }, []);
 
   useEffect(() => {
-    startNewGame();
-  }, [startNewGame]);
+    if ((game.gameStatus !== 'won' && game.gameStatus !== 'lost') || game.resultRecorded) return;
+    const resultId = resultIdForGame(game);
+    if (hasRecordedResult(resultId)) return;
+    markRecordedResult(resultId);
 
-  useEffect(() => {
-    let interval: number | undefined;
-    if (gameStatus === 'playing' && !isPaused) {
-      interval = window.setInterval(() => {
-        setTimer(t => t + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [gameStatus, isPaused]);
+    window.setTimeout(() => {
+      if (game.gameStatus === 'won') {
+        recordCompletion(game);
+      } else {
+        finishLostGame(game);
+      }
+    }, 0);
+  }, [finishLostGame, game, recordCompletion]);
 
-  const selectCell = (row: number, col: number) => {
-    setSelectedCell({ row, col });
+  const startNewGame = useCallback((difficulty: Difficulty = 'medium') => {
+    setGame(createGameState(difficulty));
+    setActiveTab('classic');
+    clearHint();
+  }, []);
+
+  const startDailyGame = (difficulty: Difficulty = game.difficulty, date: string = dailyDate) => {
+    setGame(createGameState(difficulty, 'daily', date));
+    setActiveTab('daily');
+    clearHint();
   };
 
-  const enterNumber = (num: number) => {
-    if (!selectedCell || gameStatus !== 'playing') return;
-    const { row, col } = selectedCell;
+  const selectCell = (row: number, col: number) => {
+    clearHint();
+    setGame(current => {
+      if (current.gameStatus !== 'playing') return current;
+      const next = { ...current, selectedCell: { row, col } };
+      if (
+        current.stickyNumber
+        && current.initialBoard[row][col] === 0
+        && getRemainingDigits(current.currentBoard)[current.stickyNumber] > 0
+      ) {
+        return applyNumber(next, current.stickyNumber);
+      }
+      return next;
+    });
+  };
 
-    // Don't allow changing initial numbers
-    if (initialBoard[row][col] !== 0) return;
+  const removeRelatedNotes = (currentNotes: Notes, row: number, col: number, num: number): Notes => {
+    const nextNotes = currentNotes.map(noteRow => noteRow.map(cellNotes => new Set(cellNotes)));
+    nextNotes[row][col].clear();
 
-    if (isNoteMode) {
-      const newNotes = [...notes];
-      const cellNotes = new Set(newNotes[row][col]);
+    for (let index = 0; index < 9; index++) {
+      nextNotes[row][index].delete(num);
+      nextNotes[index][col].delete(num);
+    }
+
+    const boxRow = Math.floor(row / 3) * 3;
+    const boxCol = Math.floor(col / 3) * 3;
+    for (let rowIndex = boxRow; rowIndex < boxRow + 3; rowIndex++) {
+      for (let colIndex = boxCol; colIndex < boxCol + 3; colIndex++) {
+        nextNotes[rowIndex][colIndex].delete(num);
+      }
+    }
+
+    return nextNotes;
+  };
+
+  const applyNumber = (current: SavedGameState, num: number): SavedGameState => {
+    if (!current.selectedCell || current.gameStatus !== 'playing') return current;
+
+    const { row, col } = current.selectedCell;
+    if (current.initialBoard[row][col] !== 0) return current;
+    if (!current.isNoteMode && current.currentBoard[row][col] !== num && getRemainingDigits(current.currentBoard)[num] <= 0) return current;
+
+    const currentNotes = deserializeNotes(current.notes);
+
+    if (current.isNoteMode) {
+      const nextNotes = currentNotes.map(noteRow => noteRow.map(cellNotes => new Set(cellNotes)));
+      const cellNotes = nextNotes[row][col];
       if (cellNotes.has(num)) {
         cellNotes.delete(num);
       } else {
         cellNotes.add(num);
       }
-      newNotes[row][col] = cellNotes;
-      setNotes(newNotes);
-    } else {
-      const newBoard = currentBoard.map(r => [...r]);
-      newBoard[row][col] = num === newBoard[row][col] ? 0 : num; // Toggle number
-      setCurrentBoard(newBoard);
-
-      // Check for win
-      if (checkWin(newBoard)) {
-        setGameStatus('won');
-      }
+      return { ...pushHistory(current), notes: serializeNotes(nextNotes) };
     }
+
+    const nextBoard = cloneBoard(current.currentBoard);
+    const nextValue = nextBoard[row][col] === num ? 0 : num;
+    nextBoard[row][col] = nextValue;
+
+    const isWrong = settings.autoCheck && nextValue !== 0 && nextValue !== current.solutionBoard[row][col];
+    const mistakes = isWrong && current.currentBoard[row][col] !== num
+      ? current.mistakes + 1
+      : current.mistakes;
+    const gameStatus: GameStatus = settings.mistakeLimit && mistakes >= MAX_MISTAKES
+      ? 'lost'
+      : checkWin(nextBoard, current.solutionBoard)
+        ? 'won'
+        : 'playing';
+
+    const nextGame: SavedGameState = {
+      ...pushHistory(current),
+      currentBoard: nextBoard,
+      notes: serializeNotes(removeRelatedNotes(currentNotes, row, col, num)),
+      mistakes,
+      gameStatus,
+    };
+
+    return nextGame;
   };
 
-  const checkWin = (board: Board): boolean => {
-    for (let r = 0; r < 9; r++) {
-      for (let c = 0; c < 9; c++) {
-        if (board[r][c] !== solutionBoard[r][c]) return false;
-      }
-    }
-    return true;
+  const enterNumber = (num: number) => {
+    clearHint();
+    setGame(current => applyNumber(current, num));
   };
 
-  const toggleNoteMode = () => setIsNoteMode(!isNoteMode);
+  const clearCell = () => {
+    clearHint();
+    setGame(current => {
+      if (!current.selectedCell || current.gameStatus !== 'playing') return current;
+      const { row, col } = current.selectedCell;
+      if (current.initialBoard[row][col] !== 0) return current;
+
+      const nextBoard = cloneBoard(current.currentBoard);
+      nextBoard[row][col] = 0;
+      return { ...pushHistory(current), currentBoard: nextBoard };
+    });
+  };
+
+  const toggleNoteMode = () => {
+    clearHint();
+    setGame(current => ({ ...current, isNoteMode: !current.isNoteMode }));
+  };
+
+  const toggleStickyNumber = (num: number) => {
+    clearHint();
+    setGame(current => ({
+      ...current,
+      stickyNumber: current.stickyNumber === num ? null : num,
+      isNoteMode: false,
+    }));
+  };
+
+  const autoFillNotes = () => {
+    clearHint();
+    setGame(current => {
+      if (current.gameStatus !== 'playing') return current;
+      const nextNotes = emptyNotes();
+      for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 9; col++) {
+          if (current.currentBoard[row][col] === 0) {
+            nextNotes[row][col] = new Set(getPossibleValues(current.currentBoard, row, col));
+          }
+        }
+      }
+      return { ...pushHistory(current), notes: serializeNotes(nextNotes) };
+    });
+  };
 
   const getHint = () => {
-    if (!selectedCell || gameStatus !== 'playing') return;
-    const { row, col } = selectedCell;
-    
-    if (initialBoard[row][col] !== 0) return;
+    if (game.gameStatus !== 'playing') return;
+    const hint = hintState?.hint ?? findAdvancedHint(game.currentBoard, game.selectedCell);
+    if (!hint) return;
 
-    const newBoard = currentBoard.map(r => [...r]);
-    newBoard[row][col] = solutionBoard[row][col];
-    setCurrentBoard(newBoard);
-    
-    if (checkWin(newBoard)) {
-      setGameStatus('won');
+    if (hintState && hintState.step >= 2) {
+      setHintState(null);
+      if (!hint.canFillValue) return;
+
+      setGame(current => {
+        const nextBoard = cloneBoard(current.currentBoard);
+        if (nextBoard[hint.row][hint.col] === current.solutionBoard[hint.row][hint.col]) return current;
+        nextBoard[hint.row][hint.col] = current.solutionBoard[hint.row][hint.col];
+        const nextNotes = removeRelatedNotes(deserializeNotes(current.notes), hint.row, hint.col, nextBoard[hint.row][hint.col]);
+        const gameStatus: GameStatus = checkWin(nextBoard, current.solutionBoard) ? 'won' : 'playing';
+        const nextGame: SavedGameState = {
+          ...pushHistory(current),
+          selectedCell: { row: hint.row, col: hint.col },
+          currentBoard: nextBoard,
+          notes: serializeNotes(nextNotes),
+          hintsUsed: current.hintsUsed + 1,
+          gameStatus,
+        };
+        return nextGame;
+      });
+      return;
     }
+
+    setHintState(current => {
+      const isSameHint = current?.hint.row === hint.row
+        && current.hint.col === hint.col
+        && current.hint.value === hint.value;
+      const nextStep = isSameHint ? Math.min(current.step + 1, 2) : 0;
+      return { hint, step: nextStep };
+    });
+
+    setGame(current => ({ ...current, explanationHintsUsed: current.explanationHintsUsed + 1 }));
   };
 
+  const pauseGame = () => {
+    clearHint();
+    setGame(current => current.gameStatus === 'playing' ? { ...current, gameStatus: 'paused' } : current);
+  };
+
+  const resumeGame = () => {
+    setGame(current => current.gameStatus === 'paused' ? { ...current, gameStatus: 'playing' } : current);
+  };
+
+  const undo = () => {
+    clearHint();
+    setGame(current => {
+      if (current.past.length === 0 || current.gameStatus !== 'playing') return current;
+      const previous = current.past[current.past.length - 1];
+      const currentItem: HistoryItem = {
+        currentBoard: cloneBoard(current.currentBoard),
+        notes: current.notes,
+        mistakes: current.mistakes,
+        gameStatus: current.gameStatus,
+      };
+
+      return {
+        ...current,
+        currentBoard: previous.currentBoard,
+        notes: previous.notes,
+        mistakes: previous.mistakes,
+        gameStatus: previous.gameStatus,
+        past: current.past.slice(0, current.past.length - 1),
+        future: [currentItem, ...current.future].slice(0, 50),
+      };
+    });
+  };
+
+  const redo = () => {
+    clearHint();
+    setGame(current => {
+      if (current.future.length === 0 || current.gameStatus !== 'playing') return current;
+      const next = current.future[0];
+      const currentItem: HistoryItem = {
+        currentBoard: cloneBoard(current.currentBoard),
+        notes: current.notes,
+        mistakes: current.mistakes,
+        gameStatus: current.gameStatus,
+      };
+
+      return {
+        ...current,
+        currentBoard: next.currentBoard,
+        notes: next.notes,
+        mistakes: next.mistakes,
+        gameStatus: next.gameStatus,
+        past: [...current.past, currentItem].slice(-50),
+        future: current.future.slice(1),
+      };
+    });
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target
+        && (
+          ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(target.tagName)
+          || target.isContentEditable
+        )
+      ) {
+        return;
+      }
+
+      if (event.ctrlKey || event.metaKey) {
+        if (event.key.toLowerCase() === 'z') {
+          event.preventDefault();
+          if (event.shiftKey) redo();
+          else undo();
+          return;
+        }
+        if (event.key.toLowerCase() === 'y') {
+          event.preventDefault();
+          redo();
+          return;
+        }
+      }
+
+      if (event.key >= '1' && event.key <= '9') {
+        enterNumber(Number(event.key));
+        return;
+      }
+
+      if (event.key === 'Backspace' || event.key === 'Delete') {
+        clearCell();
+        return;
+      }
+
+      if (event.key.toLowerCase() === 'n') {
+        setGame(current => current.gameStatus === 'playing'
+          ? { ...current, isNoteMode: !current.isNoteMode, stickyNumber: null }
+          : current
+        );
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
+        clearHint();
+        setGame(current => {
+          if (current.gameStatus !== 'playing') return current;
+          const { row, col } = current.selectedCell || { row: 0, col: 0 };
+          let nextRow = row;
+          let nextCol = col;
+
+          if (key === 'arrowup' || key === 'w') nextRow = (row - 1 + 9) % 9;
+          if (key === 'arrowdown' || key === 's') nextRow = (row + 1) % 9;
+          if (key === 'arrowleft' || key === 'a') nextCol = (col - 1 + 9) % 9;
+          if (key === 'arrowright' || key === 'd') nextCol = (col + 1) % 9;
+
+          return { ...current, selectedCell: { row: nextRow, col: nextCol } };
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
+
   return {
-    currentBoard,
-    initialBoard,
-    solutionBoard,
+    activeTab,
+    setActiveTab,
+    currentBoard: game.currentBoard,
+    initialBoard: game.initialBoard,
+    solutionBoard: game.solutionBoard,
     notes,
-    selectedCell,
-    isNoteMode,
-    timer,
-    gameStatus,
-    isPaused,
+    selectedCell: game.selectedCell,
+    isNoteMode: game.isNoteMode,
+    stickyNumber: game.stickyNumber,
+    timer: game.timer,
+    gameStatus: game.gameStatus,
+    gameMode: game.mode,
+    dailyDate: game.dailyDate,
+    difficulty: game.difficulty,
+    mistakes: game.mistakes,
+    maxMistakes: MAX_MISTAKES,
+    hintsUsed: game.hintsUsed,
+    explanationHintsUsed: game.explanationHintsUsed,
+    bestTime: stats.byDifficulty[game.difficulty].bestTime,
+    hintMessage: hintState ? `${hintState.hint.technique}: ${hintState.hint.messages[hintState.step]}` : null,
+    hintStep: hintState?.step ?? null,
+    remainingDigits,
+    settings,
+    stats,
+    dailyRecords,
+    currentDailyDate: dailyDate,
+    dailyStreak: calculateStreak(dailyRecords),
     selectCell,
     enterNumber,
+    clearCell,
     toggleNoteMode,
+    toggleStickyNumber,
+    autoFillNotes,
+    updateSettings,
     getHint,
     startNewGame,
+    startDailyGame,
+    pauseGame,
+    resumeGame,
+    undo,
+    redo,
+    canUndo: game.past.length > 0,
+    canRedo: game.future.length > 0,
+    showMistakes: settings.autoCheck,
+    showDuplicates: settings.duplicateHighlight,
   };
 };

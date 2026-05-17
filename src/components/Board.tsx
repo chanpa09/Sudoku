@@ -5,16 +5,24 @@ import type { Board as BoardType, Notes, CellSelection } from '../hooks/useSudok
 interface BoardProps {
   currentBoard: BoardType;
   initialBoard: BoardType;
+  solutionBoard: BoardType;
   notes: Notes;
   selectedCell: CellSelection;
+  isPaused: boolean;
+  showMistakes: boolean;
+  showDuplicates: boolean;
   onSelectCell: (row: number, col: number) => void;
 }
 
 const Board: React.FC<BoardProps> = ({
   currentBoard,
   initialBoard,
+  solutionBoard,
   notes,
   selectedCell,
+  isPaused,
+  showMistakes,
+  showDuplicates,
   onSelectCell,
 }) => {
   const isConflict = (row: number, col: number, val: number): boolean => {
@@ -41,12 +49,23 @@ const Board: React.FC<BoardProps> = ({
     return false;
   };
 
+  const isRelated = (row: number, col: number): boolean => {
+    if (!selectedCell) return false;
+    return selectedCell.row === row
+      || selectedCell.col === col
+      || (
+        Math.floor(selectedCell.row / 3) === Math.floor(row / 3)
+        && Math.floor(selectedCell.col / 3) === Math.floor(col / 3)
+      );
+  };
+
   return (
-    <div className="grid grid-cols-9 w-full max-w-[500px] aspect-square border-2 border-gray-800 shadow-2xl mx-auto">
+    <div className="grid grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] w-full max-w-[500px] aspect-square border-2 border-gray-800 shadow-2xl mx-auto" role="grid" aria-label="스도쿠 보드">
       {currentBoard.map((row: number[], rowIndex: number) =>
         row.map((cell: number, colIndex: number) => {
           const isSelected = selectedCell?.row === rowIndex && selectedCell?.col === colIndex;
-          const isSameNumber = selectedCell && currentBoard[selectedCell.row][selectedCell.col] === cell;
+          const selectedValue = selectedCell ? currentBoard[selectedCell.row][selectedCell.col] : 0;
+          const isSameNumber = showDuplicates && selectedValue !== 0 && selectedValue === cell;
           
           const borderClasses = `
             ${colIndex % 3 === 2 && colIndex !== 8 ? 'border-r-2 border-r-gray-800' : ''}
@@ -54,13 +73,18 @@ const Board: React.FC<BoardProps> = ({
           `;
 
           return (
-            <div key={`${rowIndex}-${colIndex}`} className={borderClasses}>
+            <div key={`${rowIndex}-${colIndex}`} className={`min-w-0 min-h-0 ${borderClasses}`}>
               <Cell
                 value={cell}
                 initialValue={initialBoard[rowIndex][colIndex]}
                 isSelected={!!isSelected}
                 isSameNumber={!!isSameNumber}
-                isConflict={isConflict(rowIndex, colIndex, cell)}
+                isRelated={isRelated(rowIndex, colIndex)}
+                isConflict={showDuplicates && isConflict(rowIndex, colIndex, cell)}
+                isMistake={showMistakes && cell !== 0 && cell !== solutionBoard[rowIndex][colIndex]}
+                isPaused={isPaused}
+                row={rowIndex}
+                col={colIndex}
                 notes={notes[rowIndex][colIndex]}
                 onClick={() => onSelectCell(rowIndex, colIndex)}
               />
