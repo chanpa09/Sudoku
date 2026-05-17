@@ -203,10 +203,6 @@ export const findAdvancedHint = (
   const lockedHint = findLockedCandidateHint(board);
   if (lockedHint) {
     // 고정 후보 힌트가 실제로 어떤 칸의 메모를 지울 수 있는지 확인
-    const boxRow = Math.floor(lockedHint.row / 3) * 3;
-    const boxCol = Math.floor(lockedHint.col / 3) * 3;
-    const startRow = Math.floor(lockedHint.row / 3) * 3;
-    const startCol = Math.floor(lockedHint.col / 3) * 3;
 
     // findLockedCandidateHint 내부 로직을 다시 수행하여 대상 칸 확인
     // 여기서는 단순화를 위해, 해당 유닛(행/열)의 다른 칸들 중 해당 숫자가 메모에 남아있는지 확인
