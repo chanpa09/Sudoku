@@ -183,7 +183,11 @@ const findNakedPairHint = (board: Board): Hint | null => {
   return null;
 };
 
-export const findAdvancedHint = (board: Board, selectedCell?: { row: number; col: number } | null): Hint | null => {
+export const findAdvancedHint = (
+  board: Board,
+  selectedCell: { row: number; col: number } | null | undefined,
+  notes: Set<number>[][],
+): Hint | null => {
   if (selectedCell) {
     const selectedHint = getHintForCell(board, selectedCell.row, selectedCell.col);
     if (selectedHint) return selectedHint;
@@ -196,5 +200,69 @@ export const findAdvancedHint = (board: Board, selectedCell?: { row: number; col
     }
   }
 
-  return findLockedCandidateHint(board) ?? findNakedPairHint(board);
+  const lockedHint = findLockedCandidateHint(board);
+  if (lockedHint) {
+    // 고정 후보 힌트가 실제로 어떤 칸의 메모를 지울 수 있는지 확인
+    const boxRow = Math.floor(lockedHint.row / 3) * 3;
+    const boxCol = Math.floor(lockedHint.col / 3) * 3;
+    const startRow = Math.floor(lockedHint.row / 3) * 3;
+    const startCol = Math.floor(lockedHint.col / 3) * 3;
+
+    // findLockedCandidateHint 내부 로직을 다시 수행하여 대상 칸 확인
+    // 여기서는 단순화를 위해, 해당 유닛(행/열)의 다른 칸들 중 해당 숫자가 메모에 남아있는지 확인
+    const isRow = lockedHint.messages[1].includes('행');
+    const unitCells = isRow
+      ? Array.from({ length: 9 }, (_, i) => ({ row: lockedHint.row, col: i }))
+      : Array.from({ length: 9 }, (_, i) => ({ row: i, col: lockedHint.col }));
+
+    const canRemove = unitCells.some(cell => {
+      // 같은 박스 안의 칸은 제외
+      const inBox = Math.floor(cell.row / 3) === Math.floor(lockedHint.row / 3) 
+                 && Math.floor(cell.col / 3) === Math.floor(lockedHint.col / 3);
+      return !inBox && board[cell.row][cell.col] === 0 && notes[cell.row][cell.col].has(lockedHint.value);
+    });
+
+    if (canRemove) return lockedHint;
+  }
+
+  const nakedPairHint = findNakedPairHint(board);
+  if (nakedPairHint) {
+    // 드러난 쌍 힌트가 실제로 어떤 칸의 메모를 지울 수 있는지 확인
+    const unitName = nakedPairHint.messages[1].split('가')[0].trim(); // "1행", "1열", "1-1번 박스" 등
+    
+    // 해당 유닛의 모든 칸을 다시 찾음 (findNakedPairHint 내부 로직과 유사)
+    let unitCells: Array<{ row: number; col: number }> = [];
+    if (unitName.includes('행')) {
+      const row = parseInt(unitName) - 1;
+      unitCells = Array.from({ length: 9 }, (_, i) => ({ row, col: i }));
+    } else if (unitName.includes('열')) {
+      const col = parseInt(unitName) - 1;
+      unitCells = Array.from({ length: 9 }, (_, i) => ({ row: i, col }));
+    } else if (unitName.includes('박스')) {
+      const [br, bc] = unitName.split('번')[0].split('-').map(n => parseInt(n) - 1);
+      unitCells = Array.from({ length: 9 }, (_, i) => ({
+        row: br * 3 + Math.floor(i / 3),
+        col: bc * 3 + (i % 3),
+      }));
+    }
+
+    // 쌍에 해당하는 숫자들 (예: "1/2" -> [1, 2])
+    const values = nakedPairHint.messages[1].split('가')[1].split('쌍입니다')[0].trim().split('/').map(n => parseInt(n));
+    
+    // 쌍이 있는 두 칸의 좌표 (메시지에서 추출하기 어려우므로, 보드에서 해당 숫자를 후보로 가진 칸들 중 개수가 2개인 칸을 찾음)
+    // 여기서는 간단하게 유닛 내의 다른 칸들 중 해당 숫자들을 메모로 가진 칸이 있는지 확인
+    const canRemove = unitCells.some(cell => {
+      const isPairCell = board[cell.row][cell.col] === 0 && 
+                         getPossibleValues(board, cell.row, cell.col).length === 2 &&
+                         values.every(v => getPossibleValues(board, cell.row, cell.col).includes(v));
+      
+      if (isPairCell) return false; // 쌍 자체는 제외
+
+      return board[cell.row][cell.col] === 0 && values.some(v => notes[cell.row][cell.col].has(v));
+    });
+
+    if (canRemove) return nakedPairHint;
+  }
+
+  return null;
 };

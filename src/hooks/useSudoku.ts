@@ -417,6 +417,11 @@ const calculateStreak = (records: DailyRecord[]): number => {
   let streak = 0;
   const cursor = new Date();
 
+  // 오늘 완료하지 않았다면 어제부터 체크하여 연속 기록 유지
+  if (!completedDates.has(formatLocalDate(cursor))) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
   while (completedDates.has(formatLocalDate(cursor))) {
     streak++;
     cursor.setDate(cursor.getDate() - 1);
@@ -703,12 +708,12 @@ export const useSudoku = () => {
     return nextGame;
   };
 
-  const enterNumber = (num: number) => {
+  const enterNumber = useCallback((num: number) => {
     clearHint();
     setGame(current => applyNumber(current, num));
-  };
+  }, []);
 
-  const clearCell = () => {
+  const clearCell = useCallback(() => {
     clearHint();
     setGame(current => {
       if (!current.selectedCell || current.gameStatus !== 'playing') return current;
@@ -719,23 +724,23 @@ export const useSudoku = () => {
       nextBoard[row][col] = 0;
       return { ...pushHistory(current), currentBoard: nextBoard };
     });
-  };
+  }, []);
 
-  const toggleNoteMode = () => {
+  const toggleNoteMode = useCallback(() => {
     clearHint();
-    setGame(current => ({ ...current, isNoteMode: !current.isNoteMode }));
-  };
+    setGame(current => ({ ...current, isNoteMode: !current.isNoteMode, stickyNumber: null }));
+  }, []);
 
-  const toggleStickyNumber = (num: number) => {
+  const toggleStickyNumber = useCallback((num: number) => {
     clearHint();
     setGame(current => ({
       ...current,
       stickyNumber: current.stickyNumber === num ? null : num,
       isNoteMode: false,
     }));
-  };
+  }, []);
 
-  const autoFillNotes = () => {
+  const autoFillNotes = useCallback(() => {
     clearHint();
     setGame(current => {
       if (current.gameStatus !== 'playing') return current;
@@ -749,9 +754,9 @@ export const useSudoku = () => {
       }
       return { ...pushHistory(current), notes: serializeNotes(nextNotes) };
     });
-  };
+  }, []);
 
-  const cleanNotes = () => {
+  const cleanNotes = useCallback(() => {
     clearHint();
     setGame(current => {
       if (current.gameStatus !== 'playing') return current;
@@ -767,11 +772,12 @@ export const useSudoku = () => {
       if (JSON.stringify(serialized) === JSON.stringify(current.notes)) return current;
       return { ...pushHistory(current), notes: serialized };
     });
-  };
+  }, []);
 
   const getHint = () => {
     if (game.gameStatus !== 'playing') return;
-    const hint = hintState?.hint ?? findAdvancedHint(game.currentBoard, game.selectedCell);
+    const currentNotes = deserializeNotes(game.notes);
+    const hint = hintState?.hint ?? findAdvancedHint(game.currentBoard, game.selectedCell, currentNotes);
     if (!hint) return;
 
     if (hintState && hintState.step >= 2) {
@@ -808,16 +814,16 @@ export const useSudoku = () => {
     setGame(current => ({ ...current, explanationHintsUsed: current.explanationHintsUsed + 1 }));
   };
 
-  const pauseGame = () => {
+  const pauseGame = useCallback(() => {
     clearHint();
     setGame(current => current.gameStatus === 'playing' ? { ...current, gameStatus: 'paused' } : current);
-  };
+  }, []);
 
-  const resumeGame = () => {
+  const resumeGame = useCallback(() => {
     setGame(current => current.gameStatus === 'paused' ? { ...current, gameStatus: 'playing' } : current);
-  };
+  }, []);
 
-  const undo = () => {
+  const undo = useCallback(() => {
     clearHint();
     setGame(current => {
       if (current.past.length === 0 || current.gameStatus !== 'playing') return current;
@@ -833,15 +839,15 @@ export const useSudoku = () => {
         ...current,
         currentBoard: previous.currentBoard,
         notes: previous.notes,
-        mistakes: previous.mistakes,
+        // mistakes는 그대로 유지 (어뷰징 방지)
         gameStatus: previous.gameStatus,
         past: current.past.slice(0, current.past.length - 1),
         future: [currentItem, ...current.future].slice(0, 50),
       };
     });
-  };
+  }, []);
 
-  const redo = () => {
+  const redo = useCallback(() => {
     clearHint();
     setGame(current => {
       if (current.future.length === 0 || current.gameStatus !== 'playing') return current;
@@ -857,13 +863,13 @@ export const useSudoku = () => {
         ...current,
         currentBoard: next.currentBoard,
         notes: next.notes,
-        mistakes: next.mistakes,
+        // mistakes는 그대로 유지
         gameStatus: next.gameStatus,
         past: [...current.past, currentItem].slice(-50),
         future: current.future.slice(1),
       };
     });
-  };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -903,10 +909,7 @@ export const useSudoku = () => {
       }
 
       if (event.key.toLowerCase() === 'n') {
-        setGame(current => current.gameStatus === 'playing'
-          ? { ...current, isNoteMode: !current.isNoteMode, stickyNumber: null }
-          : current
-        );
+        toggleNoteMode();
         return;
       }
 
@@ -931,7 +934,7 @@ export const useSudoku = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  });
+  }, [enterNumber, clearCell, toggleNoteMode, undo, redo]);
 
   return {
     activeTab,
