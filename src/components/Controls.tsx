@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Difficulty, GameStatus } from '../hooks/useSudoku';
 
 interface ControlsProps {
@@ -50,8 +50,32 @@ const Controls: React.FC<ControlsProps> = ({
 }) => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [lastNumber, setLastNumber] = useState<number | null>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const isEnded = gameStatus === 'won' || gameStatus === 'lost';
   const isDisabled = isEnded || gameStatus === 'paused';
+
+  useEffect(() => {
+    if (!isMoreOpen) return;
+
+    const handleClickOutside = (event: PointerEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setIsMoreOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMoreOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMoreOpen]);
 
   const handleNumberClick = (num: number) => {
     if (stickyNumber === num) {
@@ -116,7 +140,7 @@ const Controls: React.FC<ControlsProps> = ({
         >
           실행 취소
         </button>
-        <div className="relative">
+        <div className="relative" ref={moreMenuRef}>
           <button
             type="button"
             onClick={() => setIsMoreOpen(open => !open)}
@@ -128,7 +152,10 @@ const Controls: React.FC<ControlsProps> = ({
             <div className="absolute right-0 bottom-14 z-20 w-56 rounded-lg border border-[var(--border-main)] bg-[var(--bg-panel)] shadow-xl overflow-hidden text-sm">
               <button
                 type="button"
-                onClick={onRedo}
+                onClick={() => {
+                  onRedo();
+                  setIsMoreOpen(false);
+                }}
                 disabled={isDisabled || !canRedo}
                 className="w-full text-left px-4 py-3 font-semibold text-[var(--text-main)] hover:bg-[var(--bg-root)] disabled:opacity-40"
               >
@@ -136,7 +163,10 @@ const Controls: React.FC<ControlsProps> = ({
               </button>
               <button
                 type="button"
-                onClick={onClear}
+                onClick={() => {
+                  onClear();
+                  setIsMoreOpen(false);
+                }}
                 disabled={isDisabled}
                 className="w-full text-left px-4 py-3 font-semibold text-[var(--text-main)] hover:bg-[var(--bg-root)] disabled:opacity-40"
               >
@@ -144,7 +174,10 @@ const Controls: React.FC<ControlsProps> = ({
               </button>
               <button
                 type="button"
-                onClick={onAutoNotes}
+                onClick={() => {
+                  onAutoNotes();
+                  setIsMoreOpen(false);
+                }}
                 disabled={isDisabled}
                 className="w-full text-left px-4 py-3 font-semibold text-[var(--text-main)] hover:bg-[var(--bg-root)] disabled:opacity-40"
               >
@@ -152,7 +185,11 @@ const Controls: React.FC<ControlsProps> = ({
               </button>
               <button
                 type="button"
-                onClick={gameStatus === 'paused' ? onResume : onPause}
+                onClick={() => {
+                  if (gameStatus === 'paused') onResume();
+                  else onPause();
+                  setIsMoreOpen(false);
+                }}
                 disabled={isEnded}
                 className="w-full text-left px-4 py-3 font-semibold text-[var(--text-main)] hover:bg-[var(--bg-root)] disabled:opacity-40"
               >

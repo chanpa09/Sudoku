@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { AppTab, Difficulty, GameMode, GameStatus } from '../hooks/useSudoku';
 
 interface HeaderProps {
@@ -54,7 +54,31 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const modeLabel = gameMode === 'daily' ? `오늘의 문제 ${dailyDate ?? ''}` : '일반 게임';
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const handleClickOutside = (event: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMenuOpen]);
 
   return (
     <header className="w-full bg-[var(--bg-panel)] border-b border-[var(--border-main)] mb-4">
@@ -82,7 +106,7 @@ const Header: React.FC<HeaderProps> = ({
                 {gameStatus === 'won' ? '완료' : gameStatus === 'lost' ? '실패' : '일시정지'}
               </span>
             )}
-            <div className="relative">
+            <div className="relative" ref={menuRef}>
               <button
                 type="button"
                 onClick={() => setIsMenuOpen(open => !open)}
