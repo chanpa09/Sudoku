@@ -97,20 +97,28 @@ const Controls: React.FC<ControlsProps> = ({
   return (
     <div className="w-full max-w-[500px] mt-5 mx-auto flex flex-col gap-4 px-1">
       <div className="grid grid-cols-9 gap-1.5 sm:gap-2">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-          <button
-            key={num}
-            type="button"
-            disabled={isDisabled || (remainingDigits[num] <= 0 && stickyNumber !== num)}
-            onClick={() => handleNumberClick(num)}
-            className={`aspect-square flex items-center justify-center rounded-lg text-lg sm:text-xl font-bold active:scale-95 transition-all disabled:cursor-not-allowed disabled:bg-[var(--border-main)] disabled:text-[var(--text-dim)] ${
-              stickyNumber === num ? 'bg-[var(--color-primary-active)] text-white' : 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]'
-            }`}
-            title={`${remainingDigits[num]}개 남음`}
-          >
-            {num}
-          </button>
-        ))}
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
+          const isCompleted = remainingDigits[num] <= 0;
+          if (isCompleted && stickyNumber !== num) {
+            return <div key={num} className="aspect-square" />;
+          }
+
+          return (
+            <button
+              key={num}
+              type="button"
+              disabled={isDisabled}
+              onClick={() => handleNumberClick(num)}
+              className={`aspect-square flex flex-col items-center justify-center rounded-lg active:scale-95 transition-all disabled:cursor-not-allowed disabled:bg-[var(--border-main)] disabled:text-[var(--text-dim)] ${
+                stickyNumber === num ? 'bg-[var(--color-primary-active)] text-white' : 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]'
+              }`}
+              title={`${remainingDigits[num]}개 남음`}
+            >
+              <span className="text-lg sm:text-xl font-bold leading-none">{num}</span>
+              <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">{remainingDigits[num]}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-4 gap-2">
