@@ -15,6 +15,7 @@ interface CellProps {
   col: number;
   notes: Set<number>;
   onClick: () => void;
+  hintNotes?: Record<number, 'condition' | 'removal'>;
 }
 
 const Cell: React.FC<CellProps> = ({
@@ -32,6 +33,7 @@ const Cell: React.FC<CellProps> = ({
   col,
   notes,
   onClick,
+  hintNotes,
 }) => {
   const isInitial = initialValue !== 0;
 
@@ -73,16 +75,24 @@ const Cell: React.FC<CellProps> = ({
         value
       ) : (
         <div className="grid grid-cols-3 grid-rows-3 gap-0 w-full h-full p-0.5">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-            <div key={n} className="text-[8px] sm:text-[10px] leading-none flex items-center justify-center text-[var(--text-cell-note)]">
-              {notes.has(n) ? n : ''}
-            </div>
-          ))}
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => {
+            const hType = hintNotes?.[n];
+            let noteColorClass = 'text-[var(--text-cell-note)]';
+            if (hType === 'condition') {
+              noteColorClass = 'text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-100 dark:bg-emerald-950/50 rounded';
+            } else if (hType === 'removal') {
+              noteColorClass = 'text-rose-600 dark:text-rose-400 line-through font-extrabold bg-rose-100 dark:bg-rose-950/50 rounded';
+            }
+            return (
+              <div key={n} className={`text-[8px] sm:text-[10px] leading-none flex items-center justify-center ${noteColorClass}`}>
+                {notes.has(n) ? n : ''}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
-
 };
 
 export default Cell;

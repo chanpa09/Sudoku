@@ -80,6 +80,15 @@ const Board: React.FC<BoardProps> = ({
             ${rowIndex % 3 === 2 && rowIndex !== 8 ? 'border-b-2 border-b-[var(--border-board)]' : ''}
           `;
 
+          const cellHintNotes: Record<number, 'condition' | 'removal'> = {};
+          if (hintHighlight?.highlightedNotes) {
+            for (const hn of hintHighlight.highlightedNotes) {
+              if (hn.row === rowIndex && hn.col === colIndex) {
+                cellHintNotes[hn.value] = hn.type;
+              }
+            }
+          }
+
           return (
             <div key={`${rowIndex}-${colIndex}`} className={`min-w-0 min-h-0 ${borderClasses}`}>
               <Cell
@@ -97,6 +106,7 @@ const Board: React.FC<BoardProps> = ({
                 col={colIndex}
                 notes={notes[rowIndex][colIndex]}
                 onClick={() => onSelectCell(rowIndex, colIndex)}
+                hintNotes={cellHintNotes}
               />
             </div>
           );

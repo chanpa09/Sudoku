@@ -14,6 +14,7 @@ interface HeaderProps {
   explanationHintsUsed: number;
   bestTime: number | null;
   dailyStreak: number;
+  zenMode: boolean;
   onNavigate: (tab: AppTab) => void;
 }
 
@@ -32,9 +33,11 @@ const menuItems: Array<{ tab: AppTab; label: string }> = [
 ];
 
 const difficultyLabels: Record<Difficulty, string> = {
+  beginner: '입문자',
   easy: '쉬움',
   medium: '보통',
   hard: '어려움',
+  expert: '전문가/지옥',
 };
 
 const Header: React.FC<HeaderProps> = ({
@@ -50,6 +53,7 @@ const Header: React.FC<HeaderProps> = ({
   explanationHintsUsed,
   bestTime,
   dailyStreak,
+  zenMode,
   onNavigate,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -91,7 +95,7 @@ const Header: React.FC<HeaderProps> = ({
               onClick={() => setShowDetails(open => !open)}
               className="text-xs text-[var(--text-dim)] hover:text-[var(--text-main)]"
             >
-              {modeLabel} · {difficultyLabels[difficulty]} · {formatTime(timer)}
+              {modeLabel} · {difficultyLabels[difficulty]} {!zenMode && `· ${formatTime(timer)}`}
             </button>
           </div>
 
@@ -139,7 +143,7 @@ const Header: React.FC<HeaderProps> = ({
 
         {showDetails && (
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-[var(--text-main)]">
-            <div className="bg-[var(--bg-root)] rounded px-3 py-2">실수 {mistakes}/{maxMistakes}</div>
+            {!zenMode && <div className="bg-[var(--bg-root)] rounded px-3 py-2">실수 {mistakes}/{maxMistakes}</div>}
             <div className="bg-[var(--bg-root)] rounded px-3 py-2">힌트 {hintsUsed}/{explanationHintsUsed}</div>
             <div className="bg-[var(--bg-root)] rounded px-3 py-2">최고 {formatTime(bestTime)}</div>
             <div className="bg-[var(--bg-root)] rounded px-3 py-2">연속 {dailyStreak}일</div>

@@ -24,9 +24,11 @@ interface ControlsProps {
 }
 
 const difficultyLabels: Record<Difficulty, string> = {
+  beginner: '입문자',
   easy: '쉬움',
   medium: '보통',
   hard: '어려움',
+  expert: '전문가/지옥',
 };
 
 const Controls: React.FC<ControlsProps> = ({

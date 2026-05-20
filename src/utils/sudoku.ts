@@ -6,9 +6,11 @@ type RandomSource = () => number;
 export type { Board, Difficulty };
 
 export const DIFFICULTY_HOLES: Record<Difficulty, number> = {
-  easy: 36,
-  medium: 45,
+  beginner: 30,
+  easy: 38,
+  medium: 46,
   hard: 54,
+  expert: 62,
 };
 
 export const hashSeed = (seed: string | number): number => {

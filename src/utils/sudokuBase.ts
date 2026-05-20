@@ -1,5 +1,5 @@
 export type Board = number[][];
-export type Difficulty = 'easy' | 'medium' | 'hard';
+export type Difficulty = 'beginner' | 'easy' | 'medium' | 'hard' | 'expert';
 
 export const cloneBoard = (board: Board): Board => board.map(row => [...row]);
 

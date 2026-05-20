@@ -77,6 +77,72 @@
   --text-cell-entered: #7c3aed;
 }
 
+.theme-amber {
+  --color-primary: #d97706;
+  --color-primary-hover: #b45309;
+  --color-primary-active: #92400e;
+  
+  --bg-cell-selected: #fde68a;
+  --bg-cell-same: #fef3c7;
+  --bg-cell-related: #fffbeb;
+  --text-cell-entered: #d97706;
+}
+
+.theme-slate {
+  --color-primary: #475569;
+  --color-primary-hover: #334155;
+  --color-primary-active: #1e293b;
+  
+  --bg-cell-selected: #cbd5e1;
+  --bg-cell-same: #e2e8f0;
+  --bg-cell-related: #f1f5f9;
+  --text-cell-entered: #334155;
+}
+
+.theme-rose {
+  --color-primary: #e11d48;
+  --color-primary-hover: #be123c;
+  --color-primary-active: #9f1239;
+  
+  --bg-cell-selected: #fecdd3;
+  --bg-cell-same: #ffe4e6;
+  --bg-cell-related: #fff1f2;
+  --text-cell-entered: #e11d48;
+}
+
+.theme-midnight {
+  --color-primary: #6366f1; /* indigo-500 */
+  --color-primary-hover: #4f46e5;
+  --color-primary-active: #4338ca;
+  
+  --bg-cell-selected: #e0e7ff;
+  --bg-cell-same: #eef2ff;
+  --bg-cell-related: #f5f7ff;
+  --text-cell-entered: #4f46e5;
+}
+
+.theme-forest {
+  --color-primary: #15803d; /* green-700 */
+  --color-primary-hover: #166534;
+  --color-primary-active: #14532d;
+  
+  --bg-cell-selected: #dcfce7;
+  --bg-cell-same: #f0fdf4;
+  --bg-cell-related: #f7fee7;
+  --text-cell-entered: #15803d;
+}
+
+.theme-sand {
+  --color-primary: #92400e; /* amber-800 */
+  --color-primary-hover: #78350f;
+  --color-primary-active: #451a03;
+  
+  --bg-cell-selected: #fef3c7;
+  --bg-cell-same: #fffbeb;
+  --bg-cell-related: #fffbf0;
+  --text-cell-entered: #92400e;
+}
+
 /* Dark Mode */
 .dark {
   color-scheme: dark;
@@ -118,6 +184,66 @@
   --text-cell-entered: #a78bfa; /* violet-400 */
 }
 
+.dark.theme-amber {
+  --bg-cell-selected: #78350f;
+  --bg-cell-same: #78350f;
+  --bg-cell-related: #451a03;
+  --text-cell-entered: #fbbf24;
+  --color-primary: #fbbf24;
+  --color-primary-hover: #f59e0b;
+  --color-primary-active: #d97706;
+}
+
+.dark.theme-slate {
+  --bg-cell-selected: #334155;
+  --bg-cell-same: #334155;
+  --bg-cell-related: #1e293b;
+  --text-cell-entered: #94a3b8;
+  --color-primary: #64748b;
+  --color-primary-hover: #475569;
+  --color-primary-active: #334155;
+}
+
+.dark.theme-rose {
+  --bg-cell-selected: #881337;
+  --bg-cell-same: #881337;
+  --bg-cell-related: #4c0519;
+  --text-cell-entered: #fb7185;
+  --color-primary: #fb7185;
+  --color-primary-hover: #f43f5e;
+  --color-primary-active: #e11d48;
+}
+
+.dark.theme-midnight {
+  --bg-cell-selected: #312e81; /* indigo-900 */
+  --bg-cell-same: #312e81;
+  --bg-cell-related: #1e1b4b;
+  --text-cell-entered: #818cf8;
+  --color-primary: #818cf8;
+  --color-primary-hover: #6366f1;
+  --color-primary-active: #4f46e5;
+}
+
+.dark.theme-forest {
+  --bg-cell-selected: #064e3b; /* emerald-900-ish green */
+  --bg-cell-same: #064e3b;
+  --bg-cell-related: #022c22;
+  --text-cell-entered: #4ade80;
+  --color-primary: #4ade80;
+  --color-primary-hover: #22c55e;
+  --color-primary-active: #16a34a;
+}
+
+.dark.theme-sand {
+  --bg-cell-selected: #451a03; /* amber-950 */
+  --bg-cell-same: #451a03;
+  --bg-cell-related: #2d1302;
+  --text-cell-entered: #fcd34d;
+  --color-primary: #fcd34d;
+  --color-primary-hover: #fbbf24;
+  --color-primary-active: #f59e0b;
+}
+
 #root {
   width: 100%;
   max-width: 1126px;
@@ -136,5 +262,52 @@ body {
 @media (max-width: 1024px) {
   :root {
     font-size: 16px;
+  }
+}
+
+/* Glassmorphism Panels */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+}
+
+.dark .glass-panel {
+  background: rgba(17, 24, 39, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* Pulse animation for active cells */
+@keyframes cell-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.animate-pulse-subtle {
+  animation: cell-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Scale animation for number insertion */
+.cell-scale-up {
+  animation: scale-up 0.15s ease-out;
+}
+
+@keyframes scale-up {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
   }
 }

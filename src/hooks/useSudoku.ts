@@ -3,6 +3,7 @@ import type { Board, Difficulty } from '../utils/sudokuBase';
 import { cloneBoard } from '../utils/sudokuBase';
 import { generatePuzzle, generateSolvedBoard } from '../utils/sudoku';
 import { findAdvancedHint, getPossibleValues, type Hint } from '../utils/hintLogic';
+import { soundManager } from '../utils/soundManager';
 
 export type { Board, Difficulty };
 export type CellSelection = { row: number; col: number } | null;
@@ -14,6 +15,7 @@ export type HintHighlight = {
   primary: { row: number; col: number };
   related: Array<{ row: number; col: number }>;
   value: number;
+  highlightedNotes?: Array<{ row: number; col: number; value: number; type: 'condition' | 'removal' }>;
 } | null;
 
 export type GameSettings = {
@@ -21,7 +23,9 @@ export type GameSettings = {
   mistakeLimit: boolean;
   duplicateHighlight: boolean;
   darkMode: boolean;
-  colorTheme: 'blue' | 'emerald' | 'violet';
+  zenMode: boolean;
+  soundsEnabled: boolean;
+  colorTheme: 'blue' | 'emerald' | 'violet' | 'amber' | 'slate' | 'rose' | 'midnight' | 'forest' | 'sand';
 };
 
 export type DifficultyStats = {
@@ -34,11 +38,13 @@ export type DifficultyStats = {
   totalHints: number;
   noHintWins: number;
   noMistakeWins: number;
+  techniqueStats: Record<string, number>;
 };
 
 export type GameStats = {
   byDifficulty: Record<Difficulty, DifficultyStats>;
   achievements: string[];
+  unlockedThemes: string[];
 };
 
 export type DailyRecord = {
@@ -93,7 +99,7 @@ const DAILY_RECORDS_KEY = 'sudoku-daily-records-v1';
 const RECORDED_RESULTS_KEY = 'sudoku-recorded-results-v1';
 const MAX_MISTAKES = 3;
 
-const difficulties: Difficulty[] = ['easy', 'medium', 'hard'];
+const difficulties: Difficulty[] = ['beginner', 'easy', 'medium', 'hard', 'expert'];
 const statuses: GameStatus[] = ['playing', 'paused', 'won', 'lost'];
 
 const defaultSettings: GameSettings = {
@@ -101,6 +107,8 @@ const defaultSettings: GameSettings = {
   mistakeLimit: true,
   duplicateHighlight: true,
   darkMode: false,
+  zenMode: false,
+  soundsEnabled: true,
   colorTheme: 'blue',
 };
 
@@ -114,15 +122,19 @@ const emptyDifficultyStats = (): DifficultyStats => ({
   totalHints: 0,
   noHintWins: 0,
   noMistakeWins: 0,
+  techniqueStats: {},
 });
 
 const defaultStats = (): GameStats => ({
   byDifficulty: {
+    beginner: emptyDifficultyStats(),
     easy: emptyDifficultyStats(),
     medium: emptyDifficultyStats(),
     hard: emptyDifficultyStats(),
+    expert: emptyDifficultyStats(),
   },
   achievements: [],
+  unlockedThemes: ['blue', 'emerald', 'violet', 'amber', 'slate', 'rose'],
 });
 
 const formatLocalDate = (date: Date): string => {
@@ -340,6 +352,9 @@ const normalizeStats = (value: unknown): GameStats => {
   }
 
   base.achievements = Array.isArray(parsed.achievements) ? parsed.achievements.filter(item => typeof item === 'string') : [];
+  base.unlockedThemes = Array.isArray(parsed.unlockedThemes)
+    ? parsed.unlockedThemes.filter(item => typeof item === 'string')
+    : ['blue', 'emerald', 'violet', 'amber', 'slate', 'rose'];
   return base;
 };
 
@@ -476,6 +491,7 @@ export const useSudoku = () => {
       primary: { row: hintState.hint.row, col: hintState.hint.col },
       related: getHintRelatedCells(hintState.hint),
       value: hintState.hint.value,
+      highlightedNotes: hintState.hint.highlightedNotes,
     };
   }, [hintState]);
   const dailyDate = todayKey();
@@ -543,6 +559,7 @@ export const useSudoku = () => {
         totalHints: difficultyStats.totalHints + completedGame.hintsUsed,
         noHintWins: difficultyStats.noHintWins + (completedGame.hintsUsed === 0 && completedGame.explanationHintsUsed === 0 ? 1 : 0),
         noMistakeWins: difficultyStats.noMistakeWins + (completedGame.mistakes === 0 ? 1 : 0),
+        techniqueStats: { ...difficultyStats.techniqueStats },
       };
       const achievements = [];
       if (Object.values(current.byDifficulty).every(item => item.won === 0)) achievements.push(achievementLabels.firstWin);
@@ -550,8 +567,16 @@ export const useSudoku = () => {
       if (completedGame.mistakes === 0) achievements.push(achievementLabels.noMistakes);
       if (completedGame.difficulty === 'hard') achievements.push(achievementLabels.hardWin);
 
+      const unlockedThemes = [...current.unlockedThemes];
+      if (wonStats.won >= 1 && !unlockedThemes.includes('midnight')) unlockedThemes.push('midnight');
+      if (Object.values(current.byDifficulty).reduce((a, b) => a + b.won, 0) >= 10 && !unlockedThemes.includes('forest')) unlockedThemes.push('forest');
+      if (completedGame.difficulty === 'expert' && !unlockedThemes.includes('sand')) unlockedThemes.push('sand');
+
+      if (settings.soundsEnabled) soundManager.playComplete();
+
       return addAchievements({
         ...current,
+        unlockedThemes,
         byDifficulty: {
           ...current.byDifficulty,
           [completedGame.difficulty]: wonStats,
@@ -669,7 +694,7 @@ export const useSudoku = () => {
     return nextNotes;
   };
 
-  const applyNumber = (current: SavedGameState, num: number): SavedGameState => {
+  const applyNumber = useCallback((current: SavedGameState, num: number): SavedGameState => {
     if (!current.selectedCell || current.gameStatus !== 'playing') return current;
 
     const { row, col } = current.selectedCell;
@@ -713,13 +738,30 @@ export const useSudoku = () => {
       stickyNumber: current.stickyNumber === num && getRemainingDigits(nextBoard)[num] <= 0 ? null : current.stickyNumber,
     };
 
-    return nextGame;
-  };
+    if (settings.soundsEnabled) {
+      if (gameStatus === 'won') soundManager.playComplete();
+      else if (isWrong) soundManager.playError();
+      else soundManager.playInput();
+    }
 
-  const enterNumber = useCallback((num: number) => {
+    return nextGame;
+  }, [settings, checkWin]);
+
+  const enterNumber = useCallback((num: number, forceNoteMode?: boolean) => {
     clearHint();
-    setGame(current => applyNumber(current, num));
-  }, [settings]);
+    setGame(current => {
+      const originalNoteMode = current.isNoteMode;
+      let gameWithTempMode = current;
+      if (forceNoteMode !== undefined) {
+        gameWithTempMode = { ...current, isNoteMode: forceNoteMode };
+      }
+      const result = applyNumber(gameWithTempMode, num);
+      if (forceNoteMode !== undefined) {
+        result.isNoteMode = originalNoteMode;
+      }
+      return result;
+    });
+  }, [applyNumber]);
 
   const clearCell = useCallback(() => {
     clearHint();
@@ -814,6 +856,25 @@ export const useSudoku = () => {
               : current.stickyNumber,
           };
           return nextGame;
+        });
+
+        // Track technique used
+        setStats(current => {
+          const difficultyStats = current.byDifficulty[game.difficulty];
+          const technique = hint.technique;
+          return {
+            ...current,
+            byDifficulty: {
+              ...current.byDifficulty,
+              [game.difficulty]: {
+                ...difficultyStats,
+                techniqueStats: {
+                  ...difficultyStats.techniqueStats,
+                  [technique]: (difficultyStats.techniqueStats[technique] || 0) + 1,
+                },
+              },
+            },
+          };
         });
       } else if (hint.removableNotes && hint.removableNotes.length > 0) {
         setGame(current => {
@@ -932,23 +993,29 @@ export const useSudoku = () => {
         }
       }
 
-      if (event.key >= '1' && event.key <= '9') {
-        enterNumber(Number(event.key));
+      const digitMatch = event.code.match(/^(?:Digit|Numpad)([1-9])$/);
+      if (digitMatch) {
+        event.preventDefault();
+        const num = Number(digitMatch[1]);
+        enterNumber(num, event.shiftKey ? true : undefined);
         return;
       }
 
-      if (event.key === 'Backspace' || event.key === 'Delete') {
+      if (event.key === 'Backspace' || event.key === 'Delete' || event.key === '0' || event.code === 'Numpad0') {
+        event.preventDefault();
         clearCell();
         return;
       }
 
-      if (event.key.toLowerCase() === 'n') {
+      if (event.key.toLowerCase() === 'n' || event.key === ' ') {
+        event.preventDefault();
         toggleNoteMode();
         return;
       }
 
       const key = event.key.toLowerCase();
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
+        event.preventDefault();
         clearHint();
         setGame(current => {
           if (current.gameStatus !== 'playing') return current;
@@ -1014,6 +1081,22 @@ export const useSudoku = () => {
     resumeGame,
     undo,
     redo,
+    skillIndex: useMemo(() => {
+      let totalScore = 0;
+      let playedCount = 0;
+      const weights: Record<Difficulty, number> = { beginner: 1, easy: 2, medium: 3, hard: 5, expert: 8 };
+      
+      for (const [diff, s] of Object.entries(stats.byDifficulty)) {
+        if (s.played > 0) {
+          const winRate = s.won / s.played;
+          // Score = Difficulty weight * Win rate * (1 + bonus for no hints/mistakes)
+          const bonus = (s.noHintWins + s.noMistakeWins) / (s.won || 1);
+          totalScore += weights[diff as Difficulty] * winRate * (1 + bonus);
+          playedCount++;
+        }
+      }
+      return playedCount > 0 ? Math.round(totalScore * 10) : 0;
+    }, [stats]),
     canUndo: game.past.length > 0,
     canRedo: game.future.length > 0,
     showMistakes: settings.autoCheck,
