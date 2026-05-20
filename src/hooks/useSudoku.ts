@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Board, Difficulty } from '../utils/sudoku';
-import { cloneBoard, generatePuzzle, generateSolvedBoard } from '../utils/sudoku';
+import type { Board, Difficulty } from '../utils/sudokuBase';
+import { cloneBoard } from '../utils/sudokuBase';
+import { generatePuzzle, generateSolvedBoard } from '../utils/sudoku';
 import { findAdvancedHint, getPossibleValues, type Hint } from '../utils/hintLogic';
 
 export type { Board, Difficulty };
@@ -378,6 +379,11 @@ const getRemainingDigits = (board: Board): Record<number, number> => {
   return counts;
 };
 
+const isCompletedUserCell = (game: SavedGameState, row: number, col: number): boolean =>
+  game.initialBoard[row][col] === 0
+  && game.currentBoard[row][col] !== 0
+  && game.currentBoard[row][col] === game.solutionBoard[row][col];
+
 const achievementLabels = {
   firstWin: '첫 승리',
   noHints: '힌트 없이 완료',
@@ -668,6 +674,7 @@ export const useSudoku = () => {
 
     const { row, col } = current.selectedCell;
     if (current.initialBoard[row][col] !== 0) return current;
+    if (isCompletedUserCell(current, row, col)) return current;
     if (!current.isNoteMode && current.currentBoard[row][col] !== num && getRemainingDigits(current.currentBoard)[num] <= 0) return current;
 
     const currentNotes = deserializeNotes(current.notes);
@@ -703,6 +710,7 @@ export const useSudoku = () => {
       notes: serializeNotes(removeRelatedNotes(currentNotes, row, col, num)),
       mistakes,
       gameStatus,
+      stickyNumber: current.stickyNumber === num && getRemainingDigits(nextBoard)[num] <= 0 ? null : current.stickyNumber,
     };
 
     return nextGame;
@@ -711,7 +719,7 @@ export const useSudoku = () => {
   const enterNumber = useCallback((num: number) => {
     clearHint();
     setGame(current => applyNumber(current, num));
-  }, []);
+  }, [settings]);
 
   const clearCell = useCallback(() => {
     clearHint();
@@ -719,6 +727,7 @@ export const useSudoku = () => {
       if (!current.selectedCell || current.gameStatus !== 'playing') return current;
       const { row, col } = current.selectedCell;
       if (current.initialBoard[row][col] !== 0) return current;
+      if (isCompletedUserCell(current, row, col)) return current;
 
       const nextBoard = cloneBoard(current.currentBoard);
       nextBoard[row][col] = 0;
@@ -733,11 +742,14 @@ export const useSudoku = () => {
 
   const toggleStickyNumber = useCallback((num: number) => {
     clearHint();
-    setGame(current => ({
-      ...current,
-      stickyNumber: current.stickyNumber === num ? null : num,
-      isNoteMode: false,
-    }));
+    setGame(current => {
+      const isCompleted = getRemainingDigits(current.currentBoard)[num] <= 0;
+      return {
+        ...current,
+        stickyNumber: current.stickyNumber === num || isCompleted ? null : num,
+        isNoteMode: false,
+      };
+    });
   }, []);
 
   const autoFillNotes = useCallback(() => {
@@ -782,29 +794,51 @@ export const useSudoku = () => {
 
     if (hintState && hintState.step >= 2) {
       setHintState(null);
-      if (!hint.canFillValue) return;
-
-      setGame(current => {
-        const nextBoard = cloneBoard(current.currentBoard);
-        if (nextBoard[hint.row][hint.col] === current.solutionBoard[hint.row][hint.col]) return current;
-        nextBoard[hint.row][hint.col] = current.solutionBoard[hint.row][hint.col];
-        const nextNotes = removeRelatedNotes(deserializeNotes(current.notes), hint.row, hint.col, nextBoard[hint.row][hint.col]);
-        const gameStatus: GameStatus = checkWin(nextBoard, current.solutionBoard) ? 'won' : 'playing';
-        const nextGame: SavedGameState = {
-          ...pushHistory(current),
-          selectedCell: { row: hint.row, col: hint.col },
-          currentBoard: nextBoard,
-          notes: serializeNotes(nextNotes),
-          hintsUsed: current.hintsUsed + 1,
-          gameStatus,
-        };
-        return nextGame;
-      });
+      
+      if (hint.canFillValue) {
+        setGame(current => {
+          const nextBoard = cloneBoard(current.currentBoard);
+          if (nextBoard[hint.row][hint.col] === current.solutionBoard[hint.row][hint.col]) return current;
+          nextBoard[hint.row][hint.col] = current.solutionBoard[hint.row][hint.col];
+          const nextNotes = removeRelatedNotes(deserializeNotes(current.notes), hint.row, hint.col, nextBoard[hint.row][hint.col]);
+          const gameStatus: GameStatus = checkWin(nextBoard, current.solutionBoard) ? 'won' : 'playing';
+          const nextGame: SavedGameState = {
+            ...pushHistory(current),
+            selectedCell: { row: hint.row, col: hint.col },
+            currentBoard: nextBoard,
+            notes: serializeNotes(nextNotes),
+            hintsUsed: current.hintsUsed + 1,
+            gameStatus,
+            stickyNumber: current.stickyNumber === nextBoard[hint.row][hint.col] && getRemainingDigits(nextBoard)[nextBoard[hint.row][hint.col]] <= 0
+              ? null
+              : current.stickyNumber,
+          };
+          return nextGame;
+        });
+      } else if (hint.removableNotes && hint.removableNotes.length > 0) {
+        setGame(current => {
+          const nextNotes = deserializeNotes(current.notes);
+          let changed = false;
+          for (const { row, col, value } of hint.removableNotes!) {
+            if (nextNotes[row][col].has(value)) {
+              nextNotes[row][col].delete(value);
+              changed = true;
+            }
+          }
+          if (!changed) return current;
+          return {
+            ...pushHistory(current),
+            notes: serializeNotes(nextNotes),
+            hintsUsed: current.hintsUsed + 1,
+          };
+        });
+      }
       return;
     }
 
     setHintState(current => {
-      const isSameHint = current?.hint.row === hint.row
+      if (!current) return { hint, step: 0 };
+      const isSameHint = current.hint.row === hint.row
         && current.hint.col === hint.col
         && current.hint.value === hint.value;
       const nextStep = isSameHint ? Math.min(current.step + 1, 2) : 0;

@@ -1,7 +1,9 @@
-export type Board = number[][];
-export type Difficulty = 'easy' | 'medium' | 'hard';
+import { type Board, type Difficulty, cloneBoard, isValid } from './sudokuBase';
+import { evaluateBoardDifficulty } from './hintLogic';
 
 type RandomSource = () => number;
+
+export type { Board, Difficulty };
 
 export const DIFFICULTY_HOLES: Record<Difficulty, number> = {
   easy: 36,
@@ -43,41 +45,48 @@ const shuffled = <T,>(items: T[], random: RandomSource): T[] => {
   return next;
 };
 
-export const cloneBoard = (board: Board): Board => board.map(row => [...row]);
-
-export const isValid = (board: Board, row: number, col: number, num: number): boolean => {
-  for (let index = 0; index < 9; index++) {
-    if (board[row][index] === num) return false;
-    if (board[index][col] === num) return false;
-  }
-
-  const startRow = Math.floor(row / 3) * 3;
-  const startCol = Math.floor(col / 3) * 3;
-  for (let boxRow = startRow; boxRow < startRow + 3; boxRow++) {
-    for (let boxCol = startCol; boxCol < startCol + 3; boxCol++) {
-      if (board[boxRow][boxCol] === num) return false;
+export const getCandidates = (board: Board, row: number, col: number): number[] => {
+  const candidates = [];
+  for (let num = 1; num <= 9; num++) {
+    if (isValid(board, row, col, num)) {
+      candidates.push(num);
     }
   }
-
-  return true;
+  return candidates;
 };
 
-export const solveSudoku = (board: Board): boolean => {
+const findBestCell = (board: Board): { row: number; col: number; candidates: number[] } | null => {
+  let bestCell = null;
+  let minCandidates = 10;
+
   for (let row = 0; row < 9; row++) {
     for (let col = 0; col < 9; col++) {
       if (board[row][col] === 0) {
-        for (let num = 1; num <= 9; num++) {
-          if (isValid(board, row, col, num)) {
-            board[row][col] = num;
-            if (solveSudoku(board)) return true;
-            board[row][col] = 0;
-          }
+        const candidates = getCandidates(board, row, col);
+        if (candidates.length === 0) return { row, col, candidates: [] }; // Unsolvable
+        if (candidates.length < minCandidates) {
+          minCandidates = candidates.length;
+          bestCell = { row, col, candidates };
+          if (minCandidates === 1) return bestCell; // Optimization: Found a cell with only one candidate
         }
-        return false;
       }
     }
   }
-  return true;
+
+  return bestCell;
+};
+
+export const solveSudoku = (board: Board): boolean => {
+  const best = findBestCell(board);
+  if (!best) return true; // Filled
+  if (best.candidates.length === 0) return false;
+
+  for (const num of best.candidates) {
+    board[best.row][best.col] = num;
+    if (solveSudoku(board)) return true;
+    board[best.row][best.col] = 0;
+  }
+  return false;
 };
 
 const countSolutions = (board: Board, limit: number = 2): number => {
@@ -86,22 +95,19 @@ const countSolutions = (board: Board, limit: number = 2): number => {
   const solve = (): void => {
     if (count >= limit) return;
 
-    for (let row = 0; row < 9; row++) {
-      for (let col = 0; col < 9; col++) {
-        if (board[row][col] === 0) {
-          for (let num = 1; num <= 9; num++) {
-            if (isValid(board, row, col, num)) {
-              board[row][col] = num;
-              solve();
-              board[row][col] = 0;
-            }
-          }
-          return;
-        }
-      }
+    const best = findBestCell(board);
+    if (!best) {
+      count++;
+      return;
     }
+    if (best.candidates.length === 0) return;
 
-    count++;
+    for (const num of best.candidates) {
+      board[best.row][best.col] = num;
+      solve();
+      board[best.row][best.col] = 0;
+      if (count >= limit) return;
+    }
   };
 
   solve();
@@ -113,22 +119,16 @@ export const generateSolvedBoard = (seed?: string | number): Board => {
   const board: Board = Array.from({ length: 9 }, () => Array(9).fill(0));
 
   const fillBoard = (target: Board): boolean => {
-    for (let row = 0; row < 9; row++) {
-      for (let col = 0; col < 9; col++) {
-        if (target[row][col] === 0) {
-          const nums = shuffled([1, 2, 3, 4, 5, 6, 7, 8, 9], random);
-          for (const num of nums) {
-            if (isValid(target, row, col, num)) {
-              target[row][col] = num;
-              if (fillBoard(target)) return true;
-              target[row][col] = 0;
-            }
-          }
-          return false;
-        }
-      }
+    const best = findBestCell(target);
+    if (!best) return true;
+
+    const nums = shuffled(best.candidates, random);
+    for (const num of nums) {
+      target[best.row][best.col] = num;
+      if (fillBoard(target)) return true;
+      target[best.row][best.col] = 0;
     }
-    return true;
+    return false;
   };
 
   fillBoard(board);
@@ -139,7 +139,7 @@ const removeCells = (
   solvedBoard: Board,
   difficulty: Difficulty,
   seed?: string | number,
-): { puzzle: Board; removed: number } => {
+): { puzzle: Board; removed: number; actualDifficulty: Difficulty } => {
   const random = createRandom(seed);
   const puzzleBoard = cloneBoard(solvedBoard);
   const holes = DIFFICULTY_HOLES[difficulty];
@@ -165,7 +165,11 @@ const removeCells = (
     }
   }
 
-  return { puzzle: puzzleBoard, removed };
+  return { 
+    puzzle: puzzleBoard, 
+    removed, 
+    actualDifficulty: evaluateBoardDifficulty(puzzleBoard) 
+  };
 };
 
 export const generatePuzzle = (
@@ -173,20 +177,17 @@ export const generatePuzzle = (
   difficulty: Difficulty = 'medium',
   seed?: string | number,
 ): Board => {
-  const fallbackOrder: Difficulty[] = difficulty === 'hard'
-    ? ['hard', 'medium', 'easy']
-    : difficulty === 'medium'
-      ? ['medium', 'easy']
-      : ['easy'];
-
-  for (const level of fallbackOrder) {
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const result = removeCells(solvedBoard, level, seed === undefined ? undefined : `${seed}:${level}:${attempt}`);
-      if (result.removed >= DIFFICULTY_HOLES[level]) {
-        return result.puzzle;
-      }
+  // 목표 난이도에 도달할 때까지 최대 10번 시도
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const s = seed === undefined ? undefined : `${seed}:${attempt}`;
+    const result = removeCells(solvedBoard, difficulty, s);
+    
+    // 목표 난이도와 일치하거나, 빈칸 개수가 충분할 때 반환
+    if (result.actualDifficulty === difficulty || result.removed >= DIFFICULTY_HOLES[difficulty]) {
+      return result.puzzle;
     }
   }
 
-  return removeCells(solvedBoard, 'easy', seed).puzzle;
+  // 실패 시 가장 근접한 결과 반환
+  return removeCells(solvedBoard, difficulty, seed).puzzle;
 };
