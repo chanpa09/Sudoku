@@ -29,6 +29,8 @@ const difficultyLabels: Record<Difficulty, string> = {
   expert: '전문가/지옥',
 };
 
+const difficulties: Difficulty[] = ['beginner', 'easy', 'medium', 'hard', 'expert'];
+
 const achievementLabels: Record<string, string> = {
   'First Win': '첫 승리',
   'No-Hint Solve': '힌트 없이 완료',
